@@ -1,24 +1,27 @@
-//
-//  ContentView.swift
-//  QarjyFlow
-//
-//  Created by Raim on 29.08.2026.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    let store: any CategoryStore
+    @State private var selection = 0
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView(selection: $selection) {
+            NavigationStack {
+                HomeEmptyView { selection = 1 }
+            }
+            .tabItem { Label("Home", systemImage: "house") }
+            .tag(0)
+
+            NavigationStack {
+                CategoriesView(store: store)
+            }
+            .tabItem { Label("Categories", systemImage: "tag") }
+            .tag(1)
         }
-        .padding()
+        .tint(.green)
     }
 }
 
-#Preview {
-    ContentView()
+#Preview("App · local category flow") {
+    ContentView(store: CategoryPreviewData.makeStore())
 }

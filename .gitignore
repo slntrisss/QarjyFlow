@@ -1,0 +1,15 @@
+.DS_Store
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.xcresult
+*.p12
+*.mobileprovision
+.env
+.env.*
+!.env.example
+
+# Swift Package test build products
+.build/
+.swiftpm/
