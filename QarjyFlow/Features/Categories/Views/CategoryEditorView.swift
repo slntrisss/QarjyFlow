@@ -48,7 +48,7 @@ struct CategoryEditorView: View {
                     ))
                 }
                 Section {
-                    Text("A category labels transactions; it does not hold a balance. Transaction amounts and monthly budgets will be entered in their own screens.")
+                    Text("A category labels transactions; it does not hold a balance. Record actual amounts in Activity. Monthly budget planning will be added separately.")
                     Text("Moving money to your own savings or investment account is a transfer, not an expense. Transfer entry is not available yet.")
                 }
                 .font(.footnote)

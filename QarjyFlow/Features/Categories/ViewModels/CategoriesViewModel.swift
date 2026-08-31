@@ -47,6 +47,8 @@ final class CategoriesViewModel {
         do {
             try store.delete(id: category.id)
             categories.removeAll { $0.id == category.id }
+        } catch let error as CategoryError {
+            errorMessage = error.localizedDescription
         } catch {
             errorMessage = "Could not delete this category. Please try again."
         }

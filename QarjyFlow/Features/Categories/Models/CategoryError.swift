@@ -1,7 +1,7 @@
 import Foundation
 
 enum CategoryError: LocalizedError {
-    case emptyName, nameTooLong, invalidName, invalidSymbol, duplicateName, notFound
+    case emptyName, nameTooLong, invalidName, invalidSymbol, duplicateName, notFound, inUse
 
     var errorDescription: String? {
         switch self {
@@ -10,6 +10,7 @@ enum CategoryError: LocalizedError {
         case .invalidName: "Use a single line without control characters for the name."
         case .invalidSymbol: "Choose an icon from the available options."
         case .duplicateName: "A category with this name and type already exists. Check archived categories too."
+        case .inUse: "This category has transactions. Archive it instead of deleting it, and keep its original income/expense type."
         case .notFound: "This category no longer exists. Reload the category list."
         }
     }

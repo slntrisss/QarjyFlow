@@ -4,7 +4,7 @@ import SwiftData
 @MainActor
 enum AppDatabase {
     static func makeContainer(inMemory: Bool = false, url: URL? = nil) throws -> ModelContainer {
-        let schema = Schema([CategoryRecord.self])
+        let schema = Schema([CategoryRecord.self, TransactionRecord.self])
         let configuration: ModelConfiguration
         if let url {
             configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)

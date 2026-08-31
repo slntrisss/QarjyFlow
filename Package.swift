@@ -12,7 +12,8 @@ let package = Package(
             exclude: [
                 "App", "Assets.xcassets", "ContentView.swift", "QarjyFlowApp.swift",
                 "Features/Home", "Features/Categories/Views", "Features/Categories/PreviewData",
-                "Shared/UI", "Shared/Formatting"
+                "Shared/UI", "Shared/Formatting",
+                "Features/Transactions/Views", "Features/Transactions/PreviewData"
             ]
         ),
         .testTarget(name: "CategoriesCoreTests", dependencies: ["CategoriesCore"])

@@ -2,12 +2,12 @@ import SwiftUI
 
 /// Opens the local database once. Failure never silently replaces it with an empty store.
 struct AppRootView: View {
-    private let makeStore: @MainActor () throws -> SwiftDataCategoryStore
-    @State private var store: SwiftDataCategoryStore?
-    @State private var failedToOpen = false
+    private let makeStore: @MainActor () throws -> AppStores
+    @State private var store: AppStores?
+    @State private var failedToOpen = true
 
-    init(makeStore: @escaping @MainActor () throws -> SwiftDataCategoryStore = {
-        SwiftDataCategoryStore(container: try AppDatabase.makeContainer())
+    init(makeStore: @escaping @MainActor () throws -> AppStores = {
+        try AppStores.live()
     }) {
         self.makeStore = makeStore
     }
@@ -15,7 +15,7 @@ struct AppRootView: View {
     var body: some View {
         Group {
             if let store {
-                ContentView(store: store)
+                ContentView(stores: store)
             } else if failedToOpen {
                 ContentUnavailableView {
                     Label("Could not open local data", systemImage: "externaldrive.badge.exclamationmark")
@@ -25,7 +25,7 @@ struct AppRootView: View {
                     Button("Try Again", action: openDatabase)
                 }
             } else {
-                ProgressView("Opening your categories…")
+                ProgressView("Opening your data…")
             }
         }
         .task { if store == nil { openDatabase() } }
@@ -42,7 +42,7 @@ struct AppRootView: View {
 }
 
 #Preview("App root · isolated preview store") {
-    AppRootView { CategoryPreviewData.makeStore() }
+    AppRootView { TransactionPreviewData.stores() }
 }
 
 #Preview("App root · storage unavailable") {

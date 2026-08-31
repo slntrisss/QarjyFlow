@@ -14,10 +14,12 @@ final class SwiftDataCategoryStore: CategoryStore {
     }
 
     func fetchAll() throws -> [CategoryItem] {
-        try context.fetch(FetchDescriptor<CategoryRecord>()).map(\.item)
+        resetContext()
+        return try context.fetch(FetchDescriptor<CategoryRecord>()).map(\.item)
     }
 
     func save(_ draft: CategoryDraft, id: UUID?) throws -> CategoryItem {
+        resetContext()
         try draft.validate()
         let records = try context.fetch(FetchDescriptor<CategoryRecord>())
         guard !records.contains(where: {
@@ -27,6 +29,9 @@ final class SwiftDataCategoryStore: CategoryStore {
         let record: CategoryRecord
         if let id {
             guard let existing = records.first(where: { $0.id == id }) else { throw CategoryError.notFound }
+            if existing.kindRawValue != draft.kind.rawValue {
+                guard try !isUsed(id) else { throw CategoryError.inUse }
+            }
             record = existing
             record.name = draft.trimmedName
             record.normalizedName = draft.normalizedName
@@ -42,6 +47,7 @@ final class SwiftDataCategoryStore: CategoryStore {
     }
 
     func setArchived(_ archived: Bool, id: UUID) throws -> CategoryItem {
+        resetContext()
         let record = try find(id)
         record.isArchived = archived
         try commit()
@@ -49,10 +55,20 @@ final class SwiftDataCategoryStore: CategoryStore {
     }
 
     func delete(id: UUID) throws {
-        // This milestone has no transactions or budgets, so every category is unused.
-        // Add a reference check/delete rule before introducing those relationships.
+        resetContext()
+        guard try !isUsed(id) else { throw CategoryError.inUse }
         context.delete(try find(id))
         try commit()
+    }
+
+    private func resetContext() {
+        context = ModelContext(container)
+        context.autosaveEnabled = false
+    }
+
+    private func isUsed(_ id: UUID) throws -> Bool {
+        let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == id })
+        return try context.fetchCount(descriptor) > 0
     }
 
     private func find(_ id: UUID) throws -> CategoryRecord {
