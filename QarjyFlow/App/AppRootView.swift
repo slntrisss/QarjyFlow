@@ -2,12 +2,12 @@ import SwiftUI
 
 /// Opens the local database once. Failure never silently replaces it with an empty store.
 struct AppRootView: View {
-    private let makeStore: @MainActor () throws -> AppStores
+    private let makeStore: @MainActor () async throws -> AppStores
     @State private var store: AppStores?
-    @State private var failedToOpen = true
+    @State private var failedToOpen = false
 
-    init(makeStore: @escaping @MainActor () throws -> AppStores = {
-        try AppStores.live()
+    init(makeStore: @escaping @MainActor () async throws -> AppStores = {
+        try await AppStores.live()
     }) {
         self.makeStore = makeStore
     }
@@ -22,18 +22,19 @@ struct AppRootView: View {
                 } description: {
                     Text("Your data has not been reset. Try again, or restart the app. Avoid deleting the app to troubleshoot this error.")
                 } actions: {
-                    Button("Try Again", action: openDatabase)
+                    Button("Try Again") { Task { await openDatabase() } }
                 }
             } else {
                 ProgressView("Opening your data…")
             }
         }
-        .task { if store == nil { openDatabase() } }
+        .task { if store == nil { await openDatabase() } }
     }
 
-    private func openDatabase() {
+    private func openDatabase() async {
+        failedToOpen = false
         do {
-            store = try makeStore()
+            store = try await makeStore()
             failedToOpen = false
         } catch {
             failedToOpen = true

@@ -13,6 +13,7 @@ let package = Package(
                 "App", "Assets.xcassets", "ContentView.swift", "QarjyFlowApp.swift",
                 "Features/Home", "Features/Categories/Views", "Features/Categories/PreviewData",
                 "Shared/UI", "Shared/Formatting",
+                "Features/Plan/Views",
                 "Features/Transactions/Views", "Features/Transactions/PreviewData"
             ]
         ),

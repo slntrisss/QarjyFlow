@@ -7,16 +7,21 @@ final class TransactionsViewModel {
     private(set) var transactions: [TransactionItem] = []
     private(set) var categories: [CategoryItem] = []
     private(set) var hasLoaded = false
+    private(set) var isMutating = false
+    @ObservationIgnored private var revision = 0
     private(set) var loadFailed = false
     var filter: CategoryKind?
     var searchText = ""
     var errorMessage: String?
     @ObservationIgnored private let store: any TransactionStore
-    @ObservationIgnored private let categoryStore: any CategoryStore
 
-    init(store: any TransactionStore, categoryStore: any CategoryStore) {
+    init(store: any TransactionStore, initialSnapshot: LedgerSnapshot? = nil) {
+        if let initialSnapshot {
+            transactions = initialSnapshot.transactions
+            categories = initialSnapshot.categories
+            hasLoaded = true
+        }
         self.store = store
-        self.categoryStore = categoryStore
     }
 
     var visibleTransactions: [TransactionItem] {
@@ -32,31 +37,43 @@ final class TransactionsViewModel {
         categories.first { $0.id == item.categoryID }
     }
 
-    func load() {
+    func load() async {
+        guard !isMutating else { return }
+        revision += 1
+        let request = revision
         do {
-            let newCategories = try categoryStore.fetchAll()
-            let newTransactions = try store.fetchAll()
-            categories = newCategories
-            transactions = newTransactions
+            let snapshot = try await store.fetchSnapshot()
+            guard request == revision, !Task.isCancelled else { return }
+            categories = snapshot.categories
+            transactions = snapshot.transactions
             hasLoaded = true
             loadFailed = false
             errorMessage = nil
         } catch {
+            guard request == revision, !Task.isCancelled else { return }
             loadFailed = true
             errorMessage = "Could not load your transactions. Please try again."
         }
     }
 
-    func save(_ draft: TransactionDraft, id: UUID?) throws {
-        let saved = try store.save(draft, id: id)
+    func save(_ draft: TransactionDraft, id: UUID?) async throws {
+        guard !isMutating else { throw CancellationError() }
+        isMutating = true
+        revision += 1
+        defer { isMutating = false }
+        let saved = try await store.save(draft, id: id)
         transactions.removeAll { $0.id == saved.id }
         transactions.append(saved)
         transactions.sort { $0.date > $1.date }
     }
 
-    func delete(_ item: TransactionItem) {
+    func delete(_ item: TransactionItem) async {
+        guard !isMutating else { return }
+        isMutating = true
+        revision += 1
+        defer { isMutating = false }
         do {
-            try store.delete(id: item.id)
+            try await store.delete(id: item.id)
             transactions.removeAll { $0.id == item.id }
         } catch {
             errorMessage = "Could not delete this transaction. Please try again."

@@ -2,11 +2,23 @@ import Foundation
 
 @MainActor
 enum TransactionPreviewData {
-    static func stores(seed: Bool = true) -> AppStores {
+    static func stores(seed: Bool = true) -> AppStores { fixture(seed: seed).stores }
+
+    static func model(seed: Bool = true) -> TransactionsViewModel {
+        let fixture = fixture(seed: seed)
+        do {
+            return TransactionsViewModel(store: fixture.transactions,
+                initialSnapshot: try fixture.transactions.fetchSnapshot())
+        } catch { fatalError("Could not load preview: \(error)") }
+    }
+
+    private static func fixture(seed: Bool) -> (stores: AppStores, transactions: PreviewTransactionStore) {
         do {
             let container = try AppDatabase.makeContainer(inMemory: true)
-            let categories = SwiftDataCategoryStore(container: container)
-            let transactions = SwiftDataTransactionStore(container: container)
+            let categories = PreviewCategoryStore(repository: CategoryRepository(container: container))
+            let transactions = PreviewTransactionStore(
+                repository: TransactionRepository(container: container), categories: categories
+            )
             if seed {
                 var food = CategoryDraft()
                 food.name = "Groceries"
@@ -30,13 +42,7 @@ enum TransactionPreviewData {
                 income.note = "Monthly salary"
                 _ = try transactions.save(income, id: nil)
             }
-            return AppStores(categories: categories, transactions: transactions)
+            return (AppStores(categories: categories, transactions: transactions), transactions)
         } catch { fatalError("Could not build transaction preview: \(error)") }
-    }
-
-    static func model(seed: Bool = true) -> TransactionsViewModel {
-        let model = stores(seed: seed).transactionModel()
-        model.load()
-        return model
     }
 }

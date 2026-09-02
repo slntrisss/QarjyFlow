@@ -1,11 +1,11 @@
 import Foundation
 
 /// Editing a draft never changes a stored category until Save succeeds.
-struct CategoryDraft {
+struct CategoryDraft: Sendable {
     var name = ""
     var kind: CategoryKind = .expense
     var symbol = "tag.fill"
-    var color: CategoryColor = .green
+    var color: ThemeColor = .green
 
     static let symbols = [
         "tag.fill", "house.fill", "fork.knife", "bus.fill", "bag.fill",

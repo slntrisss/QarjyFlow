@@ -1,8 +1,8 @@
 import Foundation
 
-@MainActor
-protocol TransactionStore {
-    func fetchAll() throws -> [TransactionItem]
-    func save(_ draft: TransactionDraft, id: UUID?) throws -> TransactionItem
-    func delete(id: UUID) throws
+protocol TransactionStore: Sendable {
+    func fetchSnapshot() async throws -> LedgerSnapshot
+    func fetchAll() async throws -> [TransactionItem]
+    func save(_ draft: TransactionDraft, id: UUID?) async throws -> TransactionItem
+    func delete(id: UUID) async throws
 }

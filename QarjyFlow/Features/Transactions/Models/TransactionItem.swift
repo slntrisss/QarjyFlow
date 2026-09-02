@@ -1,6 +1,6 @@
 import Foundation
 
-struct TransactionItem: Identifiable, Equatable {
+struct TransactionItem: Identifiable, Equatable, Sendable {
     let id: UUID
     let amountMinor: Int64
     let kind: CategoryKind

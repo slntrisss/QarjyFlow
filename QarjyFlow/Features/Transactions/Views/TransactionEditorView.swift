@@ -5,15 +5,16 @@ struct TransactionEditorView: View {
     let categories: [CategoryItem]
     let onManageCategories: () -> Void
     private let transaction: TransactionItem?
-    private let onSave: @MainActor (TransactionDraft, UUID?) throws -> Void
+    private let onSave: @MainActor (TransactionDraft, UUID?) async throws -> Void
     @State private var draft: TransactionDraft
     @State private var errorMessage: String?
+    @State private var isSaving = false
     @Environment(\.dismiss) private var dismiss
 
     init(
         transaction: TransactionItem? = nil, categories: [CategoryItem],
         onManageCategories: @escaping () -> Void,
-        onSave: @escaping @MainActor (TransactionDraft, UUID?) throws -> Void
+        onSave: @escaping @MainActor (TransactionDraft, UUID?) async throws -> Void
     ) {
         self.transaction = transaction
         self.categories = categories
@@ -89,17 +90,22 @@ struct TransactionEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
+                    Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
                         .disabled(draft.categoryID == nil || draft.amountText.isEmpty)
                 }
             }
         }
+        .disabled(isSaving)
+        .interactiveDismissDisabled(isSaving)
         .tint(.green)
     }
 
-    private func save() {
+    private func save() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
         do {
-            try onSave(draft, transaction?.id)
+            try await onSave(draft, transaction?.id)
             dismiss()
         } catch let error as TransactionError {
             errorMessage = error.localizedDescription

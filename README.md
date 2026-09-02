@@ -2,17 +2,17 @@
 
 A native iOS personal finance app, built incrementally from the supplied FinFlow screen reference. QarjyFlow is the working name; branding is not final.
 
-## Current milestone: categories and local transactions
+## Current milestone: local ledger and Plan design preview
 
-The running app now has **Home**, **Activity**, and **Categories** tabs. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to archive, restore, or delete. The editor uses large icon tiles and explicit color swatches (rather than tint-dependent native menu labels). Search and the Active/Archived selector help manage larger lists. There is no artificial category-count limit, and no categories are inserted automatically.
+The running app now has **Home**, **Activity**, **Plan**, and **Categories** tabs. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to archive, restore, or delete. The editor uses large icon tiles and explicit color swatches (rather than tint-dependent native menu labels). Search and the Active/Archived selector help manage larger lists. There is no artificial category-count limit, and no categories are inserted automatically.
 
 Categories are saved using SwiftData on the device. There is no bank connection, login, network request, or app-level cloud sync (`cloudKitDatabase: .none`). Normal device backups are a separate OS concern: disabling app sync does not imply exclusion from device backup. Export/restore remains a future feature; local persistence alone is not a backup strategy.
 
-The original Home dashboard is available through **Home → View Sample Dashboard** and its previews. Its demo figures are never mixed with saved categories. **Account balances, transfers, investments, and budgets are not implemented yet.** Categories used by transactions cannot be deleted or switched between income and expense. Rename or archive them instead. Archived categories remain visible in history and can be retained when editing an existing transaction, but cannot be assigned to a new one.
+The original Home dashboard is available through **Home → View Sample Dashboard** and its previews. Its demo figures are never mixed with saved categories. **Account balances, transfers, investment tracking, and persisted budgets are not implemented yet.** The Plan tab is an interactive sample, clearly labeled and isolated from your saved data. Categories used by transactions cannot be deleted or switched between income and expense. Rename or archive them instead. Archived categories remain visible in history and can be retained when editing an existing transaction, but cannot be assigned to a new one.
 
 ### Categories, amounts, and transfers
 
-A category is a classification, not a balance. A transaction records an actual amount and date; a monthly budget sets a planned amount for a category. Enter actual amounts in **Activity → +**. Budget editing is not implemented yet, so the category editor intentionally has no amount field.
+A category is a classification, not a balance. A transaction records an actual amount and date; a monthly budget sets a planned amount for a category. Enter actual amounts in **Activity → +**. Real budget editing is not implemented yet; the Plan tab demonstrates allocation editing with sample data. The category editor intentionally has no amount field.
 
 The ledger distinguishes income and expenses now; transfers and investment purchases remain separate future flows:
 
@@ -27,7 +27,11 @@ Accounts here mean local bookkeeping records, not connected bank accounts. Do no
 
 The add button has a 44-point minimum hit region. Icon/color options use larger tiles with selection indicators and accessible names, following [Apple's button guidance](https://developer.apple.com/design/human-interface-guidelines/buttons). Each picker has an interactive preview. `AmountTextField` also has a preview showing its formatted display and underlying draft value.
 
-`CategoryEditorView` and its save callback explicitly use `@MainActor`. Its initial draft is created with `if let` instead of passing `CategoryDraft.init` into `Optional.map`, avoiding the reported isolated-initializer function-reference warning. The available Xcode 16.3 compiler type-checks the updated views/previews. A separate strict-concurrency-only warning remains in generated SwiftData predicate code; no unsafe Sendable conformance or concurrency-check suppression was added.
+Views and observable ViewModels stay on `MainActor`; production database work does not. Both asynchronous store adapters share one `LedgerDatabase` actor. Its container is opened off the UI executor, and its synchronous repository operations serialize validation, reads, and saves without suspending mid-operation. This protects category references even when transaction creation and category deletion arrive concurrently. A ledger snapshot reads categories and transactions together.
+
+Only immutable `Sendable` values cross the persistence boundary. SwiftData contexts and records never reach views. The project no longer infers `MainActor` for every type; UI state explicitly declares its isolation. In Java terms, `await` yields while the database worker runs, then the ViewModel resumes on the UI executor to publish results. It is not a blocking `.get()`.
+
+Editors await successful saves before dismissing and prevent repeat submissions. Failed saves retain edits. Refresh revision checks prevent a late response from overwriting a newer mutation. Preview-only adapters use isolated in-memory repositories on the main actor for immediately available Canvas fixtures; the live composition never uses them. No `@unchecked Sendable` or concurrency-check suppression was added. A separate complete-concurrency diagnostic pass on Xcode 16.3 still reports SDK key-path `Sendable` warnings in SwiftData predicates and sorting. Those remain visible; this is not a claim of a warning-free Swift 6 language-mode build.
 
 ### Category behavior
 
@@ -82,7 +86,7 @@ Additional variants cover dark Home, larger summary text, and category details w
 
 Our direction is **feature-oriented organization, with MVVM for stateful screens and composition for UI**. Category management now implements MVVM. The original Home design preview remains a View + immutable presentation snapshot; it does not need a ViewModel just to forward constants.
 
-`CategoriesViewModel` owns the category list, filtering, load errors, and user actions. It receives a `CategoryStore` through initialization. `SwiftDataCategoryStore` owns a dedicated context and returns immutable `CategoryItem` values instead of exposing persistence objects to the UI. Financial rules belong in domain types/services; storage belongs behind a persistence boundary. Views render state and forward actions. Small visual components do not each need a ViewModel. This is a project decision, not a SwiftUI requirement.
+`CategoriesViewModel` owns the category list, filtering, load errors, and user actions. It receives a `CategoryStore` through initialization. `SwiftDataCategoryStore` forwards asynchronous operations to the shared database actor; its `CategoryRepository` performs synchronous SwiftData work within that actor. It returns immutable `CategoryItem` values instead of exposing persistence objects to the UI. Financial rules belong in domain types/services; storage belongs behind a persistence boundary. Views render state and forward actions. Small visual components do not each need a ViewModel. This is a project decision, not a SwiftUI requirement.
 
 Current organization:
 
@@ -96,19 +100,26 @@ QarjyFlow/
   Features/Categories/
     Models/          CategoryItem, CategoryDraft, kind/color/error types
     ViewModels/      CategoriesViewModel
-    Persistence/     CategoryStore, SwiftDataCategoryStore, CategoryRecord
+    Persistence/     CategoryStore, SwiftDataCategoryStore, CategoryRepository, CategoryRecord
     Views/           CategoriesView, CategoryEditorView, Components/
     PreviewData/     Isolated in-memory category stores
   Features/Transactions/
     Models/          TransactionItem, TransactionDraft, TransactionSummary
     ViewModels/      TransactionsViewModel
-    Persistence/     TransactionStore, SwiftDataTransactionStore, TransactionRecord
+    Persistence/     TransactionStore, SwiftDataTransactionStore, TransactionRepository, TransactionRecord
     Views/           ActivityView, TransactionEditorView, Components/
     PreviewData/     Isolated in-memory ledger fixtures
-  App/               Shared store composition, startup and failure handling
+  Features/Plan/
+    Models/          Allocation rule, allocation, group (prototype only)
+    ViewModels/      PlanPreviewViewModel (session-only edits)
+    Views/           Overview, allocation editor, interactive host, Components/
+    PreviewData/     Fictional income and allocations
+  App/               Shared store composition, async startup and failure handling
   Shared/
-    Persistence/     AppDatabase (local-only configuration)
-    UI/              MoneySummaryCard, CardStyle
+    Design/          Shared ThemeColor palette
+    Persistence/     AppDatabase, LedgerDatabase actor, LedgerSnapshot
+    UI/              MoneySummaryCard, CardStyle, AmountTextField
+    Money/           Exact positive amount parsing and input grouping
     Formatting/      Decimal+Tenge
 ```
 
@@ -136,7 +147,17 @@ Swift structs are value types, not exactly Java records. They can have mutable p
 
 SwiftUI describes the interface from state; observed state changes cause relevant views to update. See [Apple's model-data guide](https://developer.apple.com/documentation/SwiftUI/Managing-model-data-in-your-app).
 
+## Review the Plan prototype
+
+Open the **Plan** tab or the **Plan · interactive sample** preview in `Features/Plan/Views/PlanPreviewView.swift`. Its overview composes separate income, allocation-summary, group, and row components, each with its own named preview. Expected income opens an editor for adding, editing, or deleting multiple planned sources. The allocation editor has fixed-amount and percentage variants; the overview also has a large-text preview. The sliders toolbar button opens **Plan Sections**, where the four defaults can be renamed, styled, reordered, or extended with custom sections. Allocations can move between sections and can be deleted from either their action menu or editor. Deleting a section shows a confirmation, deletes its allocations in one action, and releases their amounts to Unallocated.
+
+The fictional August plan expects 800,000 ₸ and initially allocates 770,000 ₸ across Needs, Future, Lifestyle, and Free. Tap Rent to edit its fixed amount, or Investments to edit 30% of expected income. Applying an edit updates only the in-memory sample. Expected-income sources and section customization behave the same way. Restarting the app resets both. No sample categories or transactions enter the on-disk database.
+
+Prototype assumptions (not finalized persistence rules): Free is an explicit allocation separate from Unallocated; over-allocation is shown with a warning; percentages accept up to two decimals and round the result to the nearest tiyn, with half values rounded up. Future contribution tracking is explicitly unavailable. Actual spending, month navigation/copying, adding allocations, and budget moves are not wired up yet. Expected-income editing is available in the prototype and remains separate from received-income transactions.
+
 ## Development roadmap
+
+The Plan tab's imported product context, proposed scope, and unresolved rules are captured in [Plan tab specification](docs/plan-tab-spec.md), based on the ChatGPT conversation **Plan Personal Finance App**. Read this before implementing Plans; the intended feature includes more than expense limits.
 
 1. **Foundation / design review:** Home prototype and category details (current). Review on iPhone, including large text and dark mode.
 2. **First usable slice:** categories, income/expense CRUD, local storage, Activity, and recorded Home totals are implemented. Next review the flow on-device, then decide monthly budget behavior.
@@ -166,7 +187,7 @@ On this Mac/Xcode installation, run:
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.4.sdk MACOSX_DEPLOYMENT_TARGET=15.0 /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift test --scratch-path /tmp/QarjyFlowCategoryTests -Xswiftc -target -Xswiftc arm64-apple-macosx15.0
 ```
 
-Verification on 2026-08-31: **19 tests passed** and all iOS source/previews type-checked. A full simulator build was attempted and blocked because Xcode reports that iOS 18.4 is not installed. The test suite now includes transaction CRUD, amount parsing, monthly boundaries, category protections, adding categories after transactions exist, category-only store migration, and transaction save/load failures, in addition to the original category tests. The category tests cover CRUD, stable identity, validation, archived-name conflicts, search/filter updates, isolated in-memory stores, disk-container reopening, and rollback after a rejected save. The failure-path test intentionally opens a read-only store, so its permission-error logs are expected. These tests verify the actual SwiftData store on macOS, not an iOS app relaunch. All iOS source and preview macros have also been type-checked against the iOS 18.4 SDK. A full iOS build and interactive visual QA remain pending the Xcode/runtime mismatch.
+Verification on 2026-09-02: **32 tests passed** and all iOS source/previews type-checked. A full simulator build was attempted and blocked because Xcode reports that iOS 18.4 is not installed. The suite also covers concurrent deletion/transaction creation, duplicate-creation races, stale refreshes, and prototype fixed/percentage calculations, customizable-section operations, allocation moves, allocation deletion, and cascading section deletion with correct Unallocated totals. The test suite includes transaction CRUD, amount parsing, monthly boundaries, category protections, adding categories after transactions exist, category-only store migration, and transaction save/load failures, in addition to the original category tests. The category tests cover CRUD, stable identity, validation, archived-name conflicts, search/filter updates, isolated in-memory stores, disk-container reopening, and rollback after a rejected save. The failure-path test intentionally opens a read-only store, so its permission-error logs are expected. These tests verify the actual SwiftData store on macOS, not an iOS app relaunch. All iOS source and preview macros have also been type-checked against the iOS 18.4 SDK. A full iOS build and interactive visual QA remain pending the Xcode/runtime mismatch.
 
 Manual checks once a compatible simulator is available:
 
@@ -177,6 +198,7 @@ Manual checks once a compatible simulator is available:
 5. Restart the app and confirm categories and transactions survive. Existing installations should upgrade without clearing data.
 6. Delete a transaction with confirmation and verify both totals and persistent history update.
 7. Check large text, dark mode, keyboard entry, sheet navigation, and VoiceOver on-device. Previews include empty, populated, and editor states.
+8. Open Plan: confirm 30,000 ₸ unallocated. Set Rent to 300,000 ₸ and confirm 20,000 ₸ over-allocated. Cancel another edit and confirm no change. Restart and confirm only the sample resets; the real ledger survives.
 
 ## Git
 

@@ -13,7 +13,7 @@ struct HomeLedgerView: View {
                 } description: {
                     Text("We could not load your saved data. No balances are shown until loading succeeds.")
                 } actions: {
-                    Button("Reload") { model.load() }
+                    Button("Reload") { Task { await model.load() } }
                 }
             } else {
                 ProgressView("Loading transactions…")
@@ -60,7 +60,7 @@ struct HomeLedgerView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("QarjyFlow")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { model.load() }
+        .refreshable { await model.load() }
     }
 }
 

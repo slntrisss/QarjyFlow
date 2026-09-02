@@ -12,6 +12,17 @@ struct CategoriesView: View {
 
     var body: some View {
         List {
+            if model.isLoading && !model.hasLoaded {
+                ProgressView("Loading categories…")
+            } else if !model.hasLoaded {
+                ContentUnavailableView {
+                    Label("Categories unavailable", systemImage: "tag")
+                } description: {
+                    Text("Load your saved categories before making changes.")
+                } actions: {
+                    Button("Reload") { Task { await model.load() } }
+                }
+            }
             Section {
                 Picker("Category status", selection: $model.showArchived) {
                     Text("Active").tag(false)
@@ -43,14 +54,14 @@ struct CategoriesView: View {
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Delete", role: .destructive) { deleting = category }
                                 Button(category.isArchived ? "Restore" : "Archive") {
-                                    model.setArchived(!category.isArchived, category: category)
+                                    Task { await model.setArchived(!category.isArchived, category: category) }
                                 }
                                 .tint(category.isArchived ? .green : .orange)
                             }
                             .contextMenu {
                                 Button("Edit", systemImage: "pencil") { editing = category }
                                 Button(category.isArchived ? "Restore" : "Archive", systemImage: "archivebox") {
-                                    model.setArchived(!category.isArchived, category: category)
+                                    Task { await model.setArchived(!category.isArchived, category: category) }
                                 }
                                 Button("Delete", systemImage: "trash", role: .destructive) { deleting = category }
                             }
@@ -64,6 +75,7 @@ struct CategoriesView: View {
             }
         }
         .navigationTitle("Categories")
+        .disabled(model.isMutating)
         .searchable(text: $model.searchText, prompt: "Find a category")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -73,12 +85,13 @@ struct CategoriesView: View {
                         .frame(minWidth: 44, minHeight: 44)
                         .contentShape(Rectangle())
                 }
+                    .disabled(!model.hasLoaded)
                     .accessibilityLabel("Add Category")
                     .accessibilityIdentifier("categories.add")
             }
         }
-        .task { model.load() }
-        .refreshable { model.load() }
+        .task { await model.load() }
+        .refreshable { await model.load() }
         .sheet(isPresented: $isAdding) {
             CategoryEditorView(onSave: model.save)
         }
@@ -89,7 +102,7 @@ struct CategoriesView: View {
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }
         ), titleVisibility: .visible) {
             if let deleting {
-                Button("Delete \(deleting.name)", role: .destructive) { model.delete(deleting) }
+                Button("Delete \(deleting.name)", role: .destructive) { Task { await model.delete(deleting) } }
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
@@ -98,7 +111,7 @@ struct CategoriesView: View {
         .alert("Categories", isPresented: Binding(
             get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } }
         )) {
-            Button("Reload List") { model.load() }
+            Button("Reload List") { Task { await model.load() } }
             Button("OK", role: .cancel) { model.errorMessage = nil }
         } message: {
             Text(model.errorMessage ?? "")

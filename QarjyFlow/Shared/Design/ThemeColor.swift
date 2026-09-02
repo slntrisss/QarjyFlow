@@ -1,6 +1,6 @@
 import Foundation
 
-enum CategoryColor: String, CaseIterable, Codable, Identifiable {
+enum ThemeColor: String, CaseIterable, Codable, Identifiable, Sendable {
     case green, blue, orange, pink, purple, teal
 
     var id: String { rawValue }

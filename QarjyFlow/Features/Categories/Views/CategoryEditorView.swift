@@ -3,12 +3,13 @@ import SwiftUI
 @MainActor
 struct CategoryEditorView: View {
     private let category: CategoryItem?
-    private let onSave: @MainActor (CategoryDraft, UUID?) throws -> Void
+    private let onSave: @MainActor (CategoryDraft, UUID?) async throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var draft: CategoryDraft
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
-    init(category: CategoryItem? = nil, onSave: @escaping @MainActor (CategoryDraft, UUID?) throws -> Void) {
+    init(category: CategoryItem? = nil, onSave: @escaping @MainActor (CategoryDraft, UUID?) async throws -> Void) {
         self.category = category
         self.onSave = onSave
         // Keep initialization on the main actor instead of passing an isolated
@@ -37,7 +38,7 @@ struct CategoryEditorView: View {
                     CategoryIconPicker(selection: $draft.symbol, tint: draft.color.tint)
                 }
                 Section("Color") {
-                    CategoryColorPicker(selection: $draft.color)
+                    ThemeColorPicker(selection: $draft.color)
                 }
                 Section("Preview") {
                     CategoryRow(category: CategoryItem(
@@ -67,18 +68,23 @@ struct CategoryEditorView: View {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
+                    Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
                         .disabled(draft.trimmedName.isEmpty)
                         .accessibilityIdentifier("category.save")
                 }
             }
         }
+        .disabled(isSaving)
+        .interactiveDismissDisabled(isSaving)
         .tint(.green)
     }
 
-    private func save() {
+    private func save() async {
+        guard !isSaving else { return }
+        isSaving = true
+        defer { isSaving = false }
         do {
-            try onSave(draft, category?.id)
+            try await onSave(draft, category?.id)
             dismiss()
         } catch let error as CategoryError {
             errorMessage = error.localizedDescription

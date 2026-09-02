@@ -4,6 +4,9 @@ import UIKit
 /// UIKit exposes the selection range needed to preserve the caret during regrouping.
 struct AmountTextField: UIViewRepresentable {
     @Binding var rawText: String
+    var placeholder = "0.00"
+    var inputLabel = "Amount in tenge"
+    var inputIdentifier = "transaction.amount"
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
@@ -11,10 +14,10 @@ struct AmountTextField: UIViewRepresentable {
         field.textAlignment = .right
         field.font = .preferredFont(forTextStyle: .title3)
         field.adjustsFontForContentSizeCategory = true
-        field.placeholder = "0.00"
-        field.accessibilityLabel = "Amount in tenge"
+        field.placeholder = placeholder
+        field.accessibilityLabel = inputLabel
         field.accessibilityHint = "Thousands are separated with spaces automatically."
-        field.accessibilityIdentifier = "transaction.amount"
+        field.accessibilityIdentifier = inputIdentifier
         field.delegate = context.coordinator
         field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return field
@@ -22,6 +25,9 @@ struct AmountTextField: UIViewRepresentable {
 
     func updateUIView(_ field: UITextField, context: Context) {
         context.coordinator.parent = self
+        field.placeholder = placeholder
+        field.accessibilityLabel = inputLabel
+        field.accessibilityIdentifier = inputIdentifier
         let display = AmountInputFormatting.display(rawText)
         if field.text != display { field.text = display }
     }

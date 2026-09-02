@@ -1,11 +1,11 @@
 import SwiftUI
 
-struct CategoryColorPicker: View {
-    @Binding var selection: CategoryColor
+struct ThemeColorPicker: View {
+    @Binding var selection: ThemeColor
 
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 80), spacing: 12)], spacing: 12) {
-            ForEach(CategoryColor.allCases) { color in
+            ForEach(ThemeColor.allCases) { color in
                 Button {
                     selection = color
                 } label: {
@@ -46,15 +46,15 @@ struct CategoryColorPicker: View {
 }
 
 #Preview("Colors · tap to select", traits: .sizeThatFitsLayout) {
-    @Previewable @State var selection = CategoryColor.orange
-    CategoryColorPicker(selection: $selection)
+    @Previewable @State var selection = ThemeColor.orange
+    ThemeColorPicker(selection: $selection)
         .padding()
         .tint(.green)
 }
 
 #Preview("Colors · dark mode", traits: .sizeThatFitsLayout) {
-    @Previewable @State var selection = CategoryColor.blue
-    CategoryColorPicker(selection: $selection)
+    @Previewable @State var selection = ThemeColor.blue
+    ThemeColorPicker(selection: $selection)
         .padding()
         .preferredColorScheme(.dark)
 }

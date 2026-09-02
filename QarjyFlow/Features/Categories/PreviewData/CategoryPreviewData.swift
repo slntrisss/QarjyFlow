@@ -8,9 +8,9 @@ enum CategoryPreviewData {
     )
 
     /// Only previews call this factory. It never opens the user's on-disk store.
-    static func makeStore(seed: Bool = true) -> SwiftDataCategoryStore {
+    static func makeStore(seed: Bool = true) -> PreviewCategoryStore {
         do {
-            let store = SwiftDataCategoryStore(container: try AppDatabase.makeContainer(inMemory: true))
+            let store = PreviewCategoryStore(repository: CategoryRepository(container: try AppDatabase.makeContainer(inMemory: true)))
             if seed {
                 _ = try store.save(CategoryDraft(category: food), id: nil)
                 var salary = CategoryDraft()

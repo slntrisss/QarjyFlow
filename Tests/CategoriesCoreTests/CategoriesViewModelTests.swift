@@ -3,26 +3,59 @@ import XCTest
 
 @MainActor
 final class CategoriesViewModelTests: XCTestCase {
-    func testFilteringAndMutationRefreshTheVisibleList() throws {
-        let model = CategoriesViewModel(store: SwiftDataCategoryStore(
-            container: try AppDatabase.makeContainer(inMemory: true)
-        ))
-        model.load()
+    func testFilteringAndMutationRefreshTheVisibleList() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        let model = CategoriesViewModel(store: SwiftDataCategoryStore(database: database))
+        await model.load()
         XCTAssertTrue(model.hasLoaded)
         var draft = CategoryDraft()
         draft.name = "Groceries"
-        try model.save(draft, id: nil)
+        try await model.save(draft, id: nil)
         let item = try XCTUnwrap(model.visibleCategories.first)
         model.searchText = "groC"
         XCTAssertEqual(model.visibleCategories.count, 1)
         model.searchText = "missing"
         XCTAssertTrue(model.visibleCategories.isEmpty)
         model.searchText = ""
-        model.setArchived(true, category: item)
+        await model.setArchived(true, category: item)
         XCTAssertTrue(model.visibleCategories.isEmpty)
         model.showArchived = true
         XCTAssertEqual(model.visibleCategories.first?.id, item.id)
-        model.delete(item)
+        await model.delete(item)
         XCTAssertTrue(model.categories.isEmpty)
     }
+}
+
+extension CategoriesViewModelTests {
+    func testLateRefreshCannotOverwriteCompletedSave() async throws {
+        let store = DelayedCategoryStore()
+        let model = CategoriesViewModel(store: store)
+        let loading = Task { await model.load() }
+        await fulfillment(of: [store.fetchStarted], timeout: 2)
+        var draft = CategoryDraft()
+        draft.name = "New category"
+        try await model.save(draft, id: nil)
+        store.completeFetch()
+        await loading.value
+        XCTAssertEqual(model.categories.map(\.name), ["New category"])
+    }
+}
+
+@MainActor
+private final class DelayedCategoryStore: CategoryStore {
+    let fetchStarted = XCTestExpectation(description: "Fetch suspended")
+    private var continuation: CheckedContinuation<[CategoryItem], Never>?
+    func fetchAll() async throws -> [CategoryItem] {
+        await withCheckedContinuation {
+            continuation = $0
+            fetchStarted.fulfill()
+        }
+    }
+    func completeFetch() { continuation?.resume(returning: []); continuation = nil }
+    func save(_ draft: CategoryDraft, id: UUID?) throws -> CategoryItem {
+        CategoryItem(id: id ?? UUID(), name: draft.name, kind: draft.kind,
+                     symbol: draft.symbol, color: draft.color, isArchived: false)
+    }
+    func setArchived(_ archived: Bool, id: UUID) throws -> CategoryItem { throw CategoryError.notFound }
+    func delete(id: UUID) throws { throw CategoryError.notFound }
 }

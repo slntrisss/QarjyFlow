@@ -5,10 +5,10 @@ import XCTest
 
 @MainActor
 final class TransactionTests: XCTestCase {
-    private func fixture() throws -> (ModelContainer, SwiftDataCategoryStore, SwiftDataTransactionStore, CategoryItem) {
+    private func fixture() throws -> (ModelContainer, CategoryRepository, TransactionRepository, CategoryItem) {
         let container = try AppDatabase.makeContainer(inMemory: true)
-        let categories = SwiftDataCategoryStore(container: container)
-        let transactions = SwiftDataTransactionStore(container: container)
+        let categories = CategoryRepository(container: container)
+        let transactions = TransactionRepository(container: container)
         var category = CategoryDraft()
         category.name = "Food"
         return (container, categories, transactions, try categories.save(category, id: nil))
@@ -157,15 +157,15 @@ final class TransactionTests: XCTestCase {
         }
         let transactionID = try autoreleasepool {
             let container = try AppDatabase.makeContainer(url: url)
-            let categories = SwiftDataCategoryStore(container: container)
+            let categories = CategoryRepository(container: container)
             let category = try XCTUnwrap(categories.fetchAll().first)
             XCTAssertEqual(category.id, categoryID)
             XCTAssertEqual(category.name, "Existing category")
-            return try SwiftDataTransactionStore(container: container).save(draft(category), id: nil).id
+            return try TransactionRepository(container: container).save(draft(category), id: nil).id
         }
         try autoreleasepool {
             let container = try AppDatabase.makeContainer(url: url)
-            let item = try XCTUnwrap(SwiftDataTransactionStore(container: container).fetchAll().first)
+            let item = try XCTUnwrap(TransactionRepository(container: container).fetchAll().first)
             XCTAssertEqual(item.id, transactionID)
             XCTAssertEqual(item.categoryID, categoryID)
             XCTAssertEqual(item.amountMinor, 1256)
@@ -193,24 +193,29 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(summary.count, 3)
     }
 
-    func testViewModelUpdatesAfterSaveDeleteAndNewCategoryCreation() throws {
-        let (_, categories, store, food) = try fixture()
-        let model = TransactionsViewModel(store: store, categoryStore: categories)
-        model.load()
-        try model.save(draft(food), id: nil)
+    func testViewModelUpdatesAfterSaveDeleteAndNewCategoryCreation() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        let categories = SwiftDataCategoryStore(database: database)
+        let store = SwiftDataTransactionStore(database: database)
+        var foodDraft = CategoryDraft()
+        foodDraft.name = "Food"
+        let food = try await categories.save(foodDraft, id: nil)
+        let model = TransactionsViewModel(store: store)
+        await model.load()
+        try await model.save(draft(food), id: nil)
         var newCategory = CategoryDraft()
         newCategory.name = "Books"
-        let books = try categories.save(newCategory, id: nil)
-        model.load()
+        let books = try await categories.save(newCategory, id: nil)
+        await model.load()
         XCTAssertEqual(model.categories.count, 2)
-        try model.save(draft(books), id: nil)
+        try await model.save(draft(books), id: nil)
         model.searchText = "Books"
         XCTAssertEqual(model.visibleTransactions.count, 1)
         model.filter = .income
         XCTAssertTrue(model.visibleTransactions.isEmpty)
         model.filter = nil
         let bookTransaction = try XCTUnwrap(model.visibleTransactions.first)
-        model.delete(bookTransaction)
+        await model.delete(bookTransaction)
         XCTAssertEqual(model.transactions.count, 1)
         XCTAssertTrue(model.visibleTransactions.isEmpty)
     }
@@ -224,34 +229,39 @@ final class TransactionTests: XCTestCase {
             let container = try AppDatabase.makeContainer(url: url)
             var categoryDraft = CategoryDraft()
             categoryDraft.name = "Food"
-            let category = try SwiftDataCategoryStore(container: container).save(categoryDraft, id: nil)
-            let original = try SwiftDataTransactionStore(container: container).save(draft(category), id: nil)
+            let category = try CategoryRepository(container: container).save(categoryDraft, id: nil)
+            let original = try TransactionRepository(container: container).save(draft(category), id: nil)
             return (category, original)
         }
         let schema = Schema([CategoryRecord.self, TransactionRecord.self])
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: false, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [config])
-        let store = SwiftDataTransactionStore(container: container)
+        let store = TransactionRepository(container: container)
         XCTAssertThrowsError(try store.save(draft(category, amount: "900"), id: original.id))
         XCTAssertThrowsError(try store.save(draft(category), id: nil))
         XCTAssertThrowsError(try store.delete(id: original.id))
         XCTAssertEqual(try store.fetchAll(), [original])
     }
 
-    func testLoadFailurePreservesLastSuccessfulSnapshot() throws {
-        let (_, categories, store, food) = try fixture()
-        _ = try store.save(draft(food), id: nil)
+    func testLoadFailurePreservesLastSuccessfulSnapshot() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        let categories = SwiftDataCategoryStore(database: database)
+        let store = SwiftDataTransactionStore(database: database)
+        var foodDraft = CategoryDraft()
+        foodDraft.name = "Food"
+        let food = try await categories.save(foodDraft, id: nil)
+        _ = try await store.save(draft(food), id: nil)
         let failingStore = FetchFailureStore(backing: store)
-        let model = TransactionsViewModel(store: failingStore, categoryStore: categories)
-        model.load()
+        let model = TransactionsViewModel(store: failingStore)
+        await model.load()
         let previous = model.transactions
         failingStore.shouldFail = true
-        model.load()
+        await model.load()
         XCTAssertTrue(model.loadFailed)
         XCTAssertEqual(model.transactions, previous)
         XCTAssertNotNil(model.errorMessage)
         failingStore.shouldFail = false
-        model.load()
+        await model.load()
         XCTAssertFalse(model.loadFailed)
         XCTAssertNil(model.errorMessage)
     }
@@ -264,14 +274,50 @@ private final class FetchFailureStore: TransactionStore {
 
     init(backing: any TransactionStore) { self.backing = backing }
 
-    func fetchAll() throws -> [TransactionItem] {
+    func fetchSnapshot() async throws -> LedgerSnapshot {
         if shouldFail { throw CocoaError(.fileReadNoPermission) }
-        return try backing.fetchAll()
+        return try await backing.fetchSnapshot()
     }
 
-    func save(_ draft: TransactionDraft, id: UUID?) throws -> TransactionItem {
-        try backing.save(draft, id: id)
+    func fetchAll() async throws -> [TransactionItem] {
+        if shouldFail { throw CocoaError(.fileReadNoPermission) }
+        return try await backing.fetchAll()
     }
 
-    func delete(id: UUID) throws { try backing.delete(id: id) }
+    func save(_ draft: TransactionDraft, id: UUID?) async throws -> TransactionItem {
+        try await backing.save(draft, id: id)
+    }
+
+    func delete(id: UUID) async throws { try await backing.delete(id: id) }
+}
+
+extension TransactionTests {
+    func testConcurrentDeleteAndTransactionSaveCannotCreateOrphan() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        for index in 0..<20 {
+            var categoryDraft = CategoryDraft()
+            categoryDraft.name = "Race \(index)"
+            let category = try await database.saveCategory(categoryDraft, id: nil)
+            let transactionDraft = draft(category)
+            async let deletion: Void? = try? database.deleteCategory(id: category.id)
+            async let insertion: TransactionItem? = try? database.saveTransaction(transactionDraft, id: nil)
+            _ = await (deletion, insertion)
+            let snapshot = try await database.fetchSnapshot()
+            let categoryIDs = Set(snapshot.categories.map(\.id))
+            XCTAssertTrue(snapshot.transactions.allSatisfy { categoryIDs.contains($0.categoryID) })
+        }
+    }
+
+    func testConcurrentDuplicateCategoryCreationHasOneWinner() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        var draft = CategoryDraft()
+        draft.name = "Food"
+        let input = draft
+        async let first: CategoryItem? = try? database.saveCategory(input, id: nil)
+        async let second: CategoryItem? = try? database.saveCategory(input, id: nil)
+        let results = await [first, second]
+        XCTAssertEqual(results.compactMap { $0 }.count, 1)
+        let categories = try await database.fetchCategories()
+        XCTAssertEqual(categories.count, 1)
+    }
 }

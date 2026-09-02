@@ -6,13 +6,14 @@ struct ActivityView: View {
     @State private var adding = false
     @State private var editing: TransactionItem?
     @State private var deleting: TransactionItem?
+    @State private var preparingToAdd = false
 
     var body: some View {
         List {
             if model.loadFailed {
                 Label("Could not refresh transactions. Try reloading.", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
-                Button("Reload") { model.load() }
+                Button("Reload") { Task { await model.load() } }
             } else if !model.hasLoaded {
                 ProgressView("Loading transactions…")
             }
@@ -45,8 +46,9 @@ struct ActivityView: View {
             }
         }
         .navigationTitle("Activity")
+        .disabled(model.isMutating || preparingToAdd)
         .searchable(text: $model.searchText, prompt: "Category, merchant, or note")
-        .refreshable { model.load() }
+        .refreshable { await model.load() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button(action: prepareToAdd) {
@@ -66,7 +68,7 @@ struct ActivityView: View {
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }
         ), titleVisibility: .visible) {
             if let deleting {
-                Button("Delete permanently", role: .destructive) { model.delete(deleting) }
+                Button("Delete permanently", role: .destructive) { Task { await model.delete(deleting) } }
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
@@ -75,8 +77,13 @@ struct ActivityView: View {
     }
 
     private func prepareToAdd() {
-        model.load()
-        if model.errorMessage == nil { adding = true }
+        guard !preparingToAdd else { return }
+        preparingToAdd = true
+        Task {
+            defer { preparingToAdd = false }
+            await model.load()
+            if model.hasLoaded && model.errorMessage == nil { adding = true }
+        }
     }
 }
 

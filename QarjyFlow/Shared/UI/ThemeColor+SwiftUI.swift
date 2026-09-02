@@ -1,6 +1,6 @@
 import SwiftUI
 
-extension CategoryColor {
+extension ThemeColor {
     var tint: Color {
         switch self {
         case .green: .green

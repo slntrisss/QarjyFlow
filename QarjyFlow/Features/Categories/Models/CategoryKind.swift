@@ -1,6 +1,6 @@
 import Foundation
 
-enum CategoryKind: String, CaseIterable, Codable, Identifiable {
+enum CategoryKind: String, CaseIterable, Codable, Identifiable, Sendable {
     case expense
     case income
 

@@ -24,7 +24,7 @@ final class CategoryRecord {
     var item: CategoryItem {
         CategoryItem(
             id: id, name: name, kind: CategoryKind(rawValue: kindRawValue) ?? .expense,
-            symbol: symbol, color: CategoryColor(rawValue: colorRawValue) ?? .green,
+            symbol: symbol, color: ThemeColor(rawValue: colorRawValue) ?? .green,
             isArchived: isArchived
         )
     }

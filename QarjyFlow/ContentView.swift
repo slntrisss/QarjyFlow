@@ -21,17 +21,19 @@ struct ContentView: View {
                 ActivityView(model: model, onManageCategories: { selection = 2 })
             }
             .tabItem { Label("Activity", systemImage: "list.bullet.rectangle") }.tag(1)
+            NavigationStack { PlanPreviewView() }
+                .tabItem { Label("Plan", systemImage: "chart.pie") }.tag(3)
             NavigationStack { CategoriesView(store: stores.categories) }
                 .tabItem { Label("Categories", systemImage: "tag") }.tag(2)
         }
         .tint(.green)
-        .task { model.load() }
-        .onChange(of: selection) { _, _ in model.load() }
-        .onChange(of: scenePhase) { _, phase in if phase == .active { model.load() } }
+        .task { await model.load() }
+        .onChange(of: selection) { _, _ in Task { await model.load() } }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await model.load() } } }
         .alert("Transactions", isPresented: Binding(
             get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } }
         )) {
-            Button("Reload") { model.load() }
+            Button("Reload") { Task { await model.load() } }
             Button("OK", role: .cancel) { model.errorMessage = nil }
         } message: { Text(model.errorMessage ?? "") }
     }

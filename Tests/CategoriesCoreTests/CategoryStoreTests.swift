@@ -5,8 +5,8 @@ import XCTest
 
 @MainActor
 final class CategoryStoreTests: XCTestCase {
-    private func makeStore() throws -> SwiftDataCategoryStore {
-        SwiftDataCategoryStore(container: try AppDatabase.makeContainer(inMemory: true))
+    private func makeStore() throws -> CategoryRepository {
+        CategoryRepository(container: try AppDatabase.makeContainer(inMemory: true))
     }
 
     private func draft(_ name: String, kind: CategoryKind = .expense) -> CategoryDraft {
@@ -69,13 +69,13 @@ final class CategoryStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("categories.store")
         let id = try autoreleasepool {
-            let store = SwiftDataCategoryStore(container: try AppDatabase.makeContainer(url: url))
+            let store = CategoryRepository(container: try AppDatabase.makeContainer(url: url))
             let item = try store.save(draft("Travel"), id: nil)
             _ = try store.setArchived(true, id: item.id)
             return item.id
         }
         try autoreleasepool {
-            let reopened = SwiftDataCategoryStore(container: try AppDatabase.makeContainer(url: url))
+            let reopened = CategoryRepository(container: try AppDatabase.makeContainer(url: url))
             let items = try reopened.fetchAll()
             XCTAssertEqual(items.count, 1)
             XCTAssertEqual(items.first?.id, id)
@@ -96,7 +96,7 @@ final class CategoryStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let url = directory.appendingPathComponent("readonly.store")
         let id = try autoreleasepool {
-            let store = SwiftDataCategoryStore(container: try AppDatabase.makeContainer(url: url))
+            let store = CategoryRepository(container: try AppDatabase.makeContainer(url: url))
             return try store.save(draft("Food"), id: nil).id
         }
         let schema = Schema([CategoryRecord.self, TransactionRecord.self])
@@ -104,7 +104,7 @@ final class CategoryStoreTests: XCTestCase {
             schema: schema, url: url, allowsSave: false, cloudKitDatabase: .none
         )
         let container = try ModelContainer(for: schema, configurations: [configuration])
-        let store = SwiftDataCategoryStore(container: container)
+        let store = CategoryRepository(container: container)
         XCTAssertThrowsError(try store.save(draft("Changed"), id: id))
         XCTAssertEqual(try store.fetchAll().first?.name, "Food")
         XCTAssertThrowsError(try store.save(draft("New"), id: nil))
