@@ -15,16 +15,26 @@ struct ContentView: View {
         TabView(selection: $selection) {
             NavigationStack {
                 HomeLedgerView(model: model)
+                    .toolbar {
+                        ToolbarItem(placement: .primaryAction) {
+                            NavigationLink {
+                                SettingsView(categoryStore: stores.categories)
+                            } label: {
+                                Image(systemName: "gearshape")
+                                    .font(.title3.weight(.semibold))
+                                    .frame(minWidth: 44, minHeight: 44)
+                            }
+                            .accessibilityLabel("Settings")
+                        }
+                    }
             }
             .tabItem { Label("Home", systemImage: "house") }.tag(0)
             NavigationStack {
-                ActivityView(model: model, onManageCategories: { selection = 2 })
+                ActivityView(model: model, categoryStore: stores.categories)
             }
             .tabItem { Label("Activity", systemImage: "list.bullet.rectangle") }.tag(1)
             NavigationStack { PlanPreviewView() }
-                .tabItem { Label("Plan", systemImage: "chart.pie") }.tag(3)
-            NavigationStack { CategoriesView(store: stores.categories) }
-                .tabItem { Label("Categories", systemImage: "tag") }.tag(2)
+                .tabItem { Label("Plan", systemImage: "chart.pie") }.tag(2)
         }
         .tint(.green)
         .task { await model.load() }

@@ -3,7 +3,8 @@ import SwiftUI
 @MainActor
 struct TransactionEditorView: View {
     let categories: [CategoryItem]
-    let onManageCategories: () -> Void
+    let categoryStore: any CategoryStore
+    let onCategoriesChanged: () -> Void
     private let transaction: TransactionItem?
     private let onSave: @MainActor (TransactionDraft, UUID?) async throws -> Void
     @State private var draft: TransactionDraft
@@ -13,12 +14,14 @@ struct TransactionEditorView: View {
 
     init(
         transaction: TransactionItem? = nil, categories: [CategoryItem],
-        onManageCategories: @escaping () -> Void,
+        categoryStore: any CategoryStore,
+        onCategoriesChanged: @escaping () -> Void,
         onSave: @escaping @MainActor (TransactionDraft, UUID?) async throws -> Void
     ) {
         self.transaction = transaction
         self.categories = categories
-        self.onManageCategories = onManageCategories
+        self.categoryStore = categoryStore
+        self.onCategoriesChanged = onCategoriesChanged
         self.onSave = onSave
         if let transaction {
             _draft = State(initialValue: TransactionDraft(transaction: transaction))
@@ -62,9 +65,11 @@ struct TransactionEditorView: View {
                             }
                         }
                     }
-                    Button("Manage Categories") {
-                        dismiss()
-                        onManageCategories()
+                    NavigationLink {
+                        CategoriesView(store: categoryStore)
+                            .onDisappear(perform: onCategoriesChanged)
+                    } label: {
+                        Label("Manage Categories", systemImage: "tag")
                     }
                 }
                 Section("Details") {
@@ -117,9 +122,11 @@ struct TransactionEditorView: View {
 
 #Preview("Add transaction · categories ready") {
     let model = TransactionPreviewData.model()
-    TransactionEditorView(categories: model.categories, onManageCategories: {}, onSave: model.save)
+    TransactionEditorView(categories: model.categories, categoryStore: CategoryPreviewData.makeStore(),
+                          onCategoriesChanged: {}, onSave: model.save)
 }
 
 #Preview("Add transaction · no categories") {
-    TransactionEditorView(categories: [], onManageCategories: {}) { _, _ in }
+    TransactionEditorView(categories: [], categoryStore: CategoryPreviewData.makeStore(seed: false),
+                          onCategoriesChanged: {}) { _, _ in }
 }

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ActivityView: View {
     @Bindable var model: TransactionsViewModel
-    let onManageCategories: () -> Void
+    let categoryStore: any CategoryStore
     @State private var adding = false
     @State private var editing: TransactionItem?
     @State private var deleting: TransactionItem?
@@ -59,10 +59,12 @@ struct ActivityView: View {
             }
         }
         .sheet(isPresented: $adding) {
-            TransactionEditorView(categories: model.categories, onManageCategories: onManageCategories, onSave: model.save)
+            TransactionEditorView(categories: model.categories, categoryStore: categoryStore,
+                                  onCategoriesChanged: reloadCategories, onSave: model.save)
         }
         .sheet(item: $editing) { item in
-            TransactionEditorView(transaction: item, categories: model.categories, onManageCategories: onManageCategories, onSave: model.save)
+            TransactionEditorView(transaction: item, categories: model.categories, categoryStore: categoryStore,
+                                  onCategoriesChanged: reloadCategories, onSave: model.save)
         }
         .confirmationDialog("Delete transaction?", isPresented: Binding(
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }
@@ -74,6 +76,10 @@ struct ActivityView: View {
         } message: {
             Text("This removes the transaction and updates your recorded totals.")
         }
+    }
+
+    private func reloadCategories() {
+        Task { await model.load() }
     }
 
     private func prepareToAdd() {
@@ -88,11 +94,11 @@ struct ActivityView: View {
 }
 
 #Preview("Activity · local transactions") {
-    NavigationStack { ActivityView(model: TransactionPreviewData.model(), onManageCategories: {}) }
+    NavigationStack { ActivityView(model: TransactionPreviewData.model(), categoryStore: CategoryPreviewData.makeStore()) }
         .tint(.green)
 }
 
 #Preview("Activity · empty") {
-    NavigationStack { ActivityView(model: TransactionPreviewData.model(seed: false), onManageCategories: {}) }
+    NavigationStack { ActivityView(model: TransactionPreviewData.model(seed: false), categoryStore: CategoryPreviewData.makeStore(seed: false)) }
         .tint(.green)
 }

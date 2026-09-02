@@ -4,7 +4,7 @@ A native iOS personal finance app, built incrementally from the supplied FinFlow
 
 ## Current milestone: local ledger and Plan design preview
 
-The running app now has **Home**, **Activity**, **Plan**, and **Categories** tabs. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to archive, restore, or delete. The editor uses large icon tiles and explicit color swatches (rather than tint-dependent native menu labels). Search and the Active/Archived selector help manage larger lists. There is no artificial category-count limit, and no categories are inserted automatically.
+The running app now has **Home**, **Activity**, and **Plan** tabs. Categories live under **Home → Settings → Categories** and remain directly available from the transaction editor. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories from Settings or the transaction editor with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to archive, restore, or delete. The editor uses large icon tiles and explicit color swatches (rather than tint-dependent native menu labels). Search and the Active/Archived selector help manage larger lists. There is no artificial category-count limit, and no categories are inserted automatically.
 
 Categories are saved using SwiftData on the device. There is no bank connection, login, network request, or app-level cloud sync (`cloudKitDatabase: .none`). Normal device backups are a separate OS concern: disabling app sync does not imply exclusion from device backup. Export/restore remains a future feature; local persistence alone is not a backup strategy.
 
@@ -50,7 +50,7 @@ Editors await successful saves before dismissing and prevent repeat submissions.
 - Transactions reference stable category UUIDs. Store operations validate the references and prevent deletion/type changes of used categories. This is an application-enforced reference, not a SwiftData cascading relationship. All writes must go through these stores.
 - Each transaction operation uses a fresh, non-autosaving context, explicitly saves, and discards failed edits. Category operations also refresh their context to see transaction writes from the other store.
 - The database schema adds `TransactionRecord` without changing `CategoryRecord`. A disk migration test creates the original category-only schema, opens it with the expanded schema, and verifies that the existing category ID/name survive and new transactions persist. Do not reset or delete the real store to upgrade it.
-- A shared `TransactionsViewModel` updates Home and Activity immediately after successful mutations. Returning from Categories refreshes names and newly added categories.
+- A shared `TransactionsViewModel` updates Home and Activity immediately after successful mutations. Returning from category management refreshes names and newly added categories without discarding the transaction draft.
 - Monthly net means recorded income minus recorded expenses, not a bank balance, savings figure, or safe-to-spend amount. The month uses the device's current calendar/time zone, with an exclusive next-month boundary.
 - Home does not display zero totals after an initial load failure. A failed refresh preserves the last successful snapshot and shows a warning.
 
@@ -58,7 +58,7 @@ Editors await successful saves before dismissing and prevent repeat submissions.
 
 1. Open `QarjyFlow.xcodeproj` in Xcode (installed here: 16.3).
 2. Select the QarjyFlow scheme and an iPhone simulator running iOS 18 or later. Install an iOS simulator runtime in Xcode Settings if none is available.
-3. Press **Cmd+R**. Create an expense category in **Categories → +**. Then open **Activity → +**, enter an amount, choose that category, and save.
+3. Press **Cmd+R**. Create an expense category in **Home → Settings → Categories → +**. Then open **Activity → +**, enter an amount, choose that category, and save.
 4. Tap an Activity row to edit; swipe or long-press to delete with confirmation. Home totals update immediately. Use an income category to record salary.
 5. For previews, open `ContentView.swift` and enable the Canvas.
 
@@ -109,6 +109,8 @@ QarjyFlow/
     Persistence/     TransactionStore, SwiftDataTransactionStore, TransactionRepository, TransactionRecord
     Views/           ActivityView, TransactionEditorView, Components/
     PreviewData/     Isolated in-memory ledger fixtures
+  Features/Settings/
+    Views/           SettingsView and Categories navigation
   Features/Plan/
     Models/          Allocation rule, allocation, group (prototype only)
     ViewModels/      PlanPreviewViewModel (session-only edits)
