@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PlanGroupsView: View {
-    @Bindable var model: PlanPreviewViewModel
+    @Bindable var model: PlanViewModel
     @State private var isAdding = false
     @State private var editing: PlanGroup?
     @State private var pendingDeletion: [PlanGroup] = []
@@ -38,7 +38,7 @@ struct PlanGroupsView: View {
                         }
                     }
                 }
-                .onMove(perform: model.moveGroups)
+                .onMove { source, destination in Task { await model.moveGroups(from: source, to: destination) } }
                 .onDelete { pendingDeletion = $0.sorted().map { model.groups[$0] } }
             } footer: {
                 Text("Drag to reorder. Deleting a section also deletes its allocations and returns their planned amounts to Unallocated.")
@@ -66,8 +66,9 @@ struct PlanGroupsView: View {
         ) {
             Button(pendingDeletion.count == 1 ? "Delete Section and Allocations" : "Delete Sections and Allocations",
                    role: .destructive) {
-                model.deleteGroups(ids: pendingIDs)
+                let ids = pendingIDs
                 pendingDeletion = []
+                Task { await model.deleteGroups(ids: ids) }
             }
             Button("Cancel", role: .cancel) { pendingDeletion = [] }
         } message: {
@@ -79,5 +80,5 @@ struct PlanGroupsView: View {
 }
 
 #Preview("Plan sections · delete with allocations") {
-    NavigationStack { PlanGroupsView(model: PlanPreviewViewModel()) }.tint(.green)
+    NavigationStack { PlanGroupsView(model: PlanViewModel()) }.tint(.green)
 }

@@ -18,43 +18,45 @@ final class PlanPreviewTests: XCTestCase {
     }
 
     @MainActor
-    func testSampleEditsUpdateTotalWithoutChangingOtherAllocations() throws {
-        let model = PlanPreviewViewModel()
+    func testSampleEditsUpdateTotalWithoutChangingOtherAllocations() async throws {
+        let model = PlanViewModel()
         XCTAssertEqual(model.income - model.allocated, 30_000)
         let rent = try XCTUnwrap(model.allocations.first)
-        model.updateAllocation(id: rent.id, rule: .fixed(300_000), groupID: rent.groupID)
+        await model.updateAllocation(id: rent.id, rule: .fixed(300_000), groupID: rent.groupID)
         XCTAssertEqual(model.income - model.allocated, -20_000)
         XCTAssertEqual(model.allocations[3].rule, .percentage(30))
         XCTAssertEqual(model.groups.map(\.name), ["Needs", "Future", "Lifestyle", "Free"])
     }
 
     @MainActor
-    func testPlanSectionsCanBeAddedRenamedAndReordered() throws {
-        let model = PlanPreviewViewModel()
+    func testPlanSectionsCanBeAddedRenamedAndReordered() async throws {
+        let model = PlanViewModel()
         var draft = PlanGroupDraft()
         draft.name = "Giving"
         draft.subtitle = "Gifts and donations"
         draft.symbol = "gift.fill"
         draft.color = .pink
-        XCTAssertNil(model.saveGroup(draft, id: nil))
+        let addResult = await model.saveGroup(draft, id: nil)
+        XCTAssertNil(addResult)
         let giving = try XCTUnwrap(model.groups.last)
 
         draft.name = "Generosity"
-        XCTAssertNil(model.saveGroup(draft, id: giving.id))
+        let renameResult = await model.saveGroup(draft, id: giving.id)
+        XCTAssertNil(renameResult)
         XCTAssertEqual(model.groups.last?.name, "Generosity")
-        model.moveGroups(from: IndexSet(integer: model.groups.count - 1), to: 0)
+        await model.moveGroups(from: IndexSet(integer: model.groups.count - 1), to: 0)
         XCTAssertEqual(model.groups.first?.id, giving.id)
     }
 
     @MainActor
-    func testDeletingSectionCascadesAllocationsBackToUnallocated() {
-        let model = PlanPreviewViewModel()
+    func testDeletingSectionCascadesAllocationsBackToUnallocated() async {
+        let model = PlanViewModel()
         let beforeAllocated = model.allocated
         let needsAmount = model.allocatedAmount(inGroupIDs: [PlanPreviewData.needsID])
         let needsCount = model.allocations.filter { $0.groupID == PlanPreviewData.needsID }.count
         XCTAssertGreaterThan(needsCount, 0)
 
-        model.deleteGroups(ids: [PlanPreviewData.needsID])
+        await model.deleteGroups(ids: [PlanPreviewData.needsID])
 
         XCTAssertFalse(model.groups.contains { $0.id == PlanPreviewData.needsID })
         XCTAssertFalse(model.allocations.contains { $0.groupID == PlanPreviewData.needsID })
@@ -63,14 +65,14 @@ final class PlanPreviewTests: XCTestCase {
     }
 
     @MainActor
-    func testDeletingAllocationReturnsOnlyItsAmountToUnallocated() throws {
-        let model = PlanPreviewViewModel()
+    func testDeletingAllocationReturnsOnlyItsAmountToUnallocated() async throws {
+        let model = PlanViewModel()
         let allocation = try XCTUnwrap(model.allocations.first)
         let amount = allocation.rule.amount(income: model.income)
         let beforeAllocated = model.allocated
         let beforeCount = model.allocations.count
 
-        model.deleteAllocation(id: allocation.id)
+        await model.deleteAllocation(id: allocation.id)
 
         XCTAssertEqual(model.allocations.count, beforeCount - 1)
         XCTAssertEqual(model.allocated, beforeAllocated - amount)
@@ -78,21 +80,23 @@ final class PlanPreviewTests: XCTestCase {
     }
 
     @MainActor
-    func testPlanSectionNamesAreRequiredAndUniqueIgnoringCase() {
-        let model = PlanPreviewViewModel()
+    func testPlanSectionNamesAreRequiredAndUniqueIgnoringCase() async {
+        let model = PlanViewModel()
         var draft = PlanGroupDraft()
-        XCTAssertNotNil(model.saveGroup(draft, id: nil))
+        let invalidResult = await model.saveGroup(draft, id: nil)
+        XCTAssertNotNil(invalidResult)
         draft.name = "needs"
-        XCTAssertNotNil(model.saveGroup(draft, id: nil))
+        let duplicateResult = await model.saveGroup(draft, id: nil)
+        XCTAssertNotNil(duplicateResult)
         XCTAssertEqual(model.groups.count, 4)
     }
 
     @MainActor
-    func testAllocationCanMoveToAnotherSectionWithoutChangingItsAmount() throws {
-        let model = PlanPreviewViewModel()
+    func testAllocationCanMoveToAnotherSectionWithoutChangingItsAmount() async throws {
+        let model = PlanViewModel()
         let allocation = try XCTUnwrap(model.allocations.first)
         let amount = allocation.rule.amount(income: model.income)
-        model.updateAllocation(id: allocation.id, rule: allocation.rule, groupID: PlanPreviewData.lifestyleID)
+        await model.updateAllocation(id: allocation.id, rule: allocation.rule, groupID: PlanPreviewData.lifestyleID)
         let moved = try XCTUnwrap(model.allocations.first { $0.id == allocation.id })
         XCTAssertEqual(moved.groupID, PlanPreviewData.lifestyleID)
         XCTAssertEqual(moved.rule.amount(income: model.income), amount)
@@ -102,8 +106,8 @@ final class PlanPreviewTests: XCTestCase {
 
 extension PlanPreviewTests {
     @MainActor
-    func testAddingIncomeSourceRecalculatesPercentageButNotFixedAllocations() throws {
-        let model = PlanPreviewViewModel()
+    func testAddingIncomeSourceRecalculatesPercentageButNotFixedAllocations() async throws {
+        let model = PlanViewModel()
         let rent = try XCTUnwrap(model.allocations.first { $0.name == "Rent" })
         let investment = try XCTUnwrap(model.allocations.first { $0.name == "Investments" })
         let rentBefore = rent.rule.amount(income: model.income)
@@ -112,7 +116,8 @@ extension PlanPreviewTests {
         var draft = PlannedIncomeDraft()
         draft.name = "Rental income"
         draft.amountText = "200000"
-        XCTAssertNil(model.saveIncome(draft, id: nil))
+        let incomeResult = await model.saveIncome(draft, id: nil)
+        XCTAssertNil(incomeResult)
 
         XCTAssertEqual(model.income, 1_000_000)
         XCTAssertEqual(rent.rule.amount(income: model.income), rentBefore)
@@ -123,21 +128,23 @@ extension PlanPreviewTests {
     }
 
     @MainActor
-    func testExpectedIncomeCanBeEditedDeletedAndCannotDuplicateNames() throws {
-        let model = PlanPreviewViewModel()
+    func testExpectedIncomeCanBeEditedDeletedAndCannotDuplicateNames() async throws {
+        let model = PlanViewModel()
         let salary = try XCTUnwrap(model.incomeSources.first)
         var edit = PlannedIncomeDraft(source: salary)
         edit.amountText = "900000"
-        XCTAssertNil(model.saveIncome(edit, id: salary.id))
+        let editResult = await model.saveIncome(edit, id: salary.id)
+        XCTAssertNil(editResult)
         XCTAssertEqual(model.income, 1_000_000)
 
         var duplicate = PlannedIncomeDraft()
         duplicate.name = "SALARY"
         duplicate.amountText = "1"
-        XCTAssertNotNil(model.saveIncome(duplicate, id: nil))
+        let duplicateResult = await model.saveIncome(duplicate, id: nil)
+        XCTAssertNotNil(duplicateResult)
 
         let freelance = try XCTUnwrap(model.incomeSources.first { $0.name == "Freelance" })
-        model.deleteIncome(id: freelance.id)
+        await model.deleteIncome(id: freelance.id)
         XCTAssertEqual(model.income, 900_000)
         XCTAssertEqual(model.incomeSources.count, 1)
     }

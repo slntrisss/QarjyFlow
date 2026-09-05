@@ -2,17 +2,17 @@
 
 A native iOS personal finance app, built incrementally from the supplied FinFlow screen reference. QarjyFlow is the working name; branding is not final.
 
-## Current milestone: local ledger and Plan design preview
+## Current milestone: local ledger and persisted monthly planning
 
 The running app now has **Home**, **Activity**, and **Plan** tabs. Categories live under **Home → Settings → Categories** and remain directly available from the transaction editor. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories from Settings or the transaction editor with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to archive, restore, or delete. The editor uses large icon tiles and explicit color swatches (rather than tint-dependent native menu labels). Search and the Active/Archived selector help manage larger lists. There is no artificial category-count limit, and no categories are inserted automatically.
 
 Categories are saved using SwiftData on the device. There is no bank connection, login, network request, or app-level cloud sync (`cloudKitDatabase: .none`). Normal device backups are a separate OS concern: disabling app sync does not imply exclusion from device backup. Export/restore remains a future feature; local persistence alone is not a backup strategy.
 
-The original Home dashboard is available through **Home → View Sample Dashboard** and its previews. Its demo figures are never mixed with saved categories. **Account balances, transfers, investment tracking, and persisted budgets are not implemented yet.** The Plan tab is an interactive sample, clearly labeled and isolated from your saved data. Categories used by transactions cannot be deleted or switched between income and expense. Rename or archive them instead. Archived categories remain visible in history and can be retained when editing an existing transaction, but cannot be assigned to a new one.
+The original Home dashboard is available through **Home → View Sample Dashboard** and its previews. Its demo figures are never mixed with saved data. **Account balances, transfers, and investment tracking are not implemented yet.** Plan stores one local plan for the current month, including expected-income sources, custom sections, fixed or percentage allocations, and expense-category references. Categories used by transactions or plans cannot be deleted or switched between income and expense. Rename or archive them instead. Archived categories remain available to existing records but cannot be assigned to a new transaction or allocation.
 
 ### Categories, amounts, and transfers
 
-A category is a classification, not a balance. A transaction records an actual amount and date; a monthly budget sets a planned amount for a category. Enter actual amounts in **Activity → +**. Real budget editing is not implemented yet; the Plan tab demonstrates allocation editing with sample data. The category editor intentionally has no amount field.
+A category is a classification, not a balance. A transaction records an actual amount and date; a monthly Plan allocation sets an intended amount for an expense category or future purpose. Enter actual amounts in **Activity → +** and planned amounts in **Plan → Add**. The category editor intentionally has no amount field.
 
 The ledger distinguishes income and expenses now; transfers and investment purchases remain separate future flows:
 
@@ -113,7 +113,7 @@ QarjyFlow/
     Views/           SettingsView and Categories navigation
   Features/Plan/
     Models/          Allocation rule, allocation, group (prototype only)
-    ViewModels/      PlanPreviewViewModel (session-only edits)
+    ViewModels/      PlanViewModel
     Views/           Overview, allocation editor, interactive host, Components/
     PreviewData/     Fictional income and allocations
   App/               Shared store composition, async startup and failure handling
@@ -149,9 +149,9 @@ Swift structs are value types, not exactly Java records. They can have mutable p
 
 SwiftUI describes the interface from state; observed state changes cause relevant views to update. See [Apple's model-data guide](https://developer.apple.com/documentation/SwiftUI/Managing-model-data-in-your-app).
 
-## Review the Plan prototype
+## Review monthly Plan
 
-Open the **Plan** tab or the **Plan · interactive sample** preview in `Features/Plan/Views/PlanPreviewView.swift`. Its overview composes separate income, allocation-summary, group, and row components, each with its own named preview. Expected income opens an editor for adding, editing, or deleting multiple planned sources. The allocation editor has fixed-amount and percentage variants; the overview also has a large-text preview. The sliders toolbar button opens **Plan Sections**, where the four defaults can be renamed, styled, reordered, or extended with custom sections. Allocations can move between sections and can be deleted from either their action menu or editor. Deleting a section shows a confirmation, deletes its allocations in one action, and releases their amounts to Unallocated.
+Open the **Plan** tab or a named preview in `Features/Plan/Views/PlanView.swift`. On first use, create the current month's empty plan; sample values are confined to previews. Expected income supports multiple editable sources and never creates Activity transactions. Add fixed-amount or percentage allocations for active expense categories or standalone future purposes. The sliders toolbar button opens **Plan Sections**, where defaults can be renamed, styled, reordered, deleted, or extended. Deleting an allocation or a whole section releases its planned amount to Unallocated and never deletes an Activity transaction.
 
 The fictional August plan expects 800,000 ₸ and initially allocates 770,000 ₸ across Needs, Future, Lifestyle, and Free. Tap Rent to edit its fixed amount, or Investments to edit 30% of expected income. Applying an edit updates only the in-memory sample. Expected-income sources and section customization behave the same way. Restarting the app resets both. No sample categories or transactions enter the on-disk database.
 
@@ -163,7 +163,7 @@ The Plan tab's imported product context, proposed scope, and unresolved rules ar
 
 1. **Foundation / design review:** Home prototype and category details (current). Review on iPhone, including large text and dark mode.
 2. **First usable slice:** categories, income/expense CRUD, local storage, Activity, and recorded Home totals are implemented. Next review the flow on-device, then decide monthly budget behavior.
-3. **Planning:** income onboarding, allocation templates, editable monthly budgets, over-budget states. Preserve historical months when editing a plan.
+3. **Planning:** month navigation and copying, allocation templates, planned-versus-actual values, and over-budget states. Preserve historical months when editing a plan.
 4. **Analysis:** categories, merchants, trends, calendar, monthly summary. Calculate from one ledger, not independent screen totals.
 5. **Extended finance:** accounts, transfers, savings goals, net worth, and free-to-spend rules after accounting semantics are agreed.
 6. **Release preparation:** accessibility, localization, backup/export, privacy decisions, migrations, icon, device testing, and TestFlight.
@@ -200,7 +200,7 @@ Manual checks once a compatible simulator is available:
 5. Restart the app and confirm categories and transactions survive. Existing installations should upgrade without clearing data.
 6. Delete a transaction with confirmation and verify both totals and persistent history update.
 7. Check large text, dark mode, keyboard entry, sheet navigation, and VoiceOver on-device. Previews include empty, populated, and editor states.
-8. Open Plan: confirm 30,000 ₸ unallocated. Set Rent to 300,000 ₸ and confirm 20,000 ₸ over-allocated. Cancel another edit and confirm no change. Restart and confirm only the sample resets; the real ledger survives.
+8. Create the current Plan, add expected income and an allocation, then restart and confirm both restore. Delete the allocation and confirm its amount returns to Unallocated without affecting Activity.
 
 ## Git
 

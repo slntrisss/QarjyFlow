@@ -41,10 +41,13 @@ struct HomeLedgerView: View {
                 }
                 Text("Net is income minus expenses you recorded this month. It is not your bank balance or an amount safe to spend.")
                     .font(.footnote).foregroundStyle(.secondary)
+                Label("Expected income and allocations entered in Plan do not change these recorded totals. Record money when it is actually received or spent in Activity.",
+                      systemImage: "info.circle")
+                    .font(.footnote).foregroundStyle(.secondary)
 
                 if model.transactions.isEmpty {
                     Text("Your first transaction starts the story.").font(.headline)
-                    Text("Create a category, then record income or an expense in Activity.")
+                    Text("Create a category, then record income when it arrives or an expense when you spend it in Activity.")
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Recent transactions").font(.headline)
@@ -52,8 +55,6 @@ struct HomeLedgerView: View {
                         TransactionRow(transaction: item, category: model.category(for: item))
                     }
                 }
-                NavigationLink("View Sample Dashboard") { HomeView(snapshot: .demo) }
-                    .font(.footnote)
             }
             .padding(20)
         }

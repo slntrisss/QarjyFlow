@@ -2,13 +2,14 @@ import SwiftUI
 
 struct PlannedIncomeEditorView: View {
     let source: PlannedIncomeSource?
-    let onSave: (PlannedIncomeDraft, UUID?) -> String?
+    let onSave: (PlannedIncomeDraft, UUID?) async -> String?
     @Environment(\.dismiss) private var dismiss
     @State private var draft: PlannedIncomeDraft
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
     init(source: PlannedIncomeSource? = nil,
-         onSave: @escaping (PlannedIncomeDraft, UUID?) -> String?) {
+         onSave: @escaping (PlannedIncomeDraft, UUID?) async -> String?) {
         self.source = source
         self.onSave = onSave
         _draft = State(initialValue: source.map(PlannedIncomeDraft.init) ?? PlannedIncomeDraft())
@@ -35,7 +36,7 @@ struct PlannedIncomeEditorView: View {
                     Section { Label(errorMessage, systemImage: "exclamationmark.circle")
                         .foregroundStyle(.red) }
                 }
-                Section { Text("Design preview only. This source resets when the app restarts.")
+                Section { Text("This source belongs to the selected monthly plan.")
                     .font(.footnote).foregroundStyle(.secondary) }
             }
             .navigationTitle(source == nil ? "Add Expected Income" : "Edit Expected Income")
@@ -43,13 +44,18 @@ struct PlannedIncomeEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if let message = onSave(draft, source?.id) { errorMessage = message }
-                        else { dismiss() }
-                    }.disabled(draft.trimmedName.isEmpty || draft.amountText.isEmpty)
+                    Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
+                        .disabled(isSaving || draft.trimmedName.isEmpty || draft.amountText.isEmpty)
                 }
             }
-        }.tint(.green)
+        }.interactiveDismissDisabled(isSaving).tint(.green)
+    }
+
+    private func save() async {
+        guard !isSaving else { return }
+        isSaving = true; defer { isSaving = false }
+        if let message = await onSave(draft, source?.id) { errorMessage = message }
+        else { dismiss() }
     }
 }
 

@@ -5,11 +5,13 @@ import Foundation
 actor LedgerDatabase {
     private let categories: CategoryRepository
     private let transactions: TransactionRepository
+    private let plans: PlanRepository
 
     private init(inMemory: Bool, url: URL?) throws {
         let container = try AppDatabase.makeContainer(inMemory: inMemory, url: url)
         categories = CategoryRepository(container: container)
         transactions = TransactionRepository(container: container)
+        plans = PlanRepository(container: container)
     }
 
     static func open(inMemory: Bool = false, url: URL? = nil) async throws -> LedgerDatabase {
@@ -36,4 +38,6 @@ actor LedgerDatabase {
         try transactions.save(draft, id: id)
     }
     func deleteTransaction(id: UUID) throws { try transactions.delete(id: id) }
+    func fetchPlan(month: PlanMonth) throws -> MonthlyPlan? { try plans.fetch(month: month) }
+    func savePlan(_ plan: MonthlyPlan) throws -> MonthlyPlan { try plans.save(plan) }
 }

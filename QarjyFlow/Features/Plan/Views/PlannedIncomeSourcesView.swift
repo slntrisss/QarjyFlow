@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PlannedIncomeSourcesView: View {
-    @Bindable var model: PlanPreviewViewModel
+    @Bindable var model: PlanViewModel
     @Environment(\.dismiss) private var dismiss
     @State private var isAdding = false
     @State private var editing: PlannedIncomeSource?
@@ -38,6 +38,7 @@ struct PlannedIncomeSourcesView: View {
                     }
                     .swipeActions(allowsFullSwipe: false) {
                         Button("Delete", role: .destructive) { deleting = source }
+                            .tint(.red)
                     }
                     .contextMenu {
                         Button("Edit", systemImage: "pencil") { editing = source }
@@ -64,8 +65,7 @@ struct PlannedIncomeSourcesView: View {
         ), titleVisibility: .visible) {
             if let deleting {
                 Button("Delete Income Source", role: .destructive) {
-                    model.deleteIncome(id: deleting.id)
-                    self.deleting = nil
+                    Task { await model.deleteIncome(id: deleting.id); self.deleting = nil }
                 }
             }
             Button("Cancel", role: .cancel) { deleting = nil }
@@ -76,5 +76,5 @@ struct PlannedIncomeSourcesView: View {
 }
 
 #Preview("Expected income · multiple editable sources") {
-    NavigationStack { PlannedIncomeSourcesView(model: PlanPreviewViewModel()) }.tint(.green)
+    NavigationStack { PlannedIncomeSourcesView(model: PlanViewModel()) }.tint(.green)
 }

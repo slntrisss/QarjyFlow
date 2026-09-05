@@ -38,6 +38,7 @@ struct ActivityView: View {
                 }
                 .swipeActions(allowsFullSwipe: false) {
                     Button("Delete", role: .destructive) { deleting = item }
+                        .tint(.red)
                 }
                 .contextMenu {
                     Button("Edit", systemImage: "pencil") { editing = item }

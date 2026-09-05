@@ -1,7 +1,6 @@
 import Foundation
 
-/// Prototype rule: percentages use expected income, rounded to the nearest tiyn.
-/// This rounding policy is provisional until the persisted Plan rules are agreed.
+/// Percentages use expected income and round to the nearest minor currency unit.
 enum PlanAllocationRule: Equatable, Sendable {
     case fixed(Decimal)
     case percentage(Decimal)

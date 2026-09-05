@@ -5,18 +5,19 @@ struct PlanAllocationEditorView: View {
     let groups: [PlanGroup]
     let income: Decimal
     let otherAllocated: Decimal
-    let onApply: (PlanAllocationRule, UUID) -> Void
-    let onDelete: () -> Void
+    let onApply: (PlanAllocationRule, UUID) async -> Void
+    let onDelete: () async -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var selectedGroupID: UUID
     @State private var usePercentage: Bool
     @State private var amountText: String
     @State private var percentText: String
     @State private var confirmingDeletion = false
+    @State private var isSaving = false
 
     init(allocation: PlanAllocation, groups: [PlanGroup], income: Decimal, otherAllocated: Decimal,
-         onApply: @escaping (PlanAllocationRule, UUID) -> Void,
-         onDelete: @escaping () -> Void) {
+         onApply: @escaping (PlanAllocationRule, UUID) async -> Void,
+         onDelete: @escaping () async -> Void) {
         self.allocation = allocation; self.groups = groups; self.income = income
         self.otherAllocated = otherAllocated; self.onApply = onApply; self.onDelete = onDelete
         _selectedGroupID = State(initialValue: allocation.groupID)
@@ -82,7 +83,7 @@ struct PlanAllocationEditorView: View {
                     } else { Text("Enter a valid positive value with up to two decimal places.")
                         .font(.footnote).foregroundStyle(.secondary) }
                 }
-                Section { Text("Design preview only. Applying changes updates the sample, not your saved data.")
+                Section { Text("Changes are saved to this monthly plan. They do not create or modify Activity transactions.")
                     .font(.footnote).foregroundStyle(.secondary) }
                 Section {
                     Button("Delete Allocation", systemImage: "trash", role: .destructive) {
@@ -96,23 +97,29 @@ struct PlanAllocationEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Apply to Sample") {
-                        guard let rule else { return }; onApply(rule, selectedGroupID); dismiss()
-                    }.disabled(rule == nil || selectedGroup == nil)
+                    Button(isSaving ? "Saving…" : "Save") { Task { await apply() } }
+                        .disabled(isSaving || rule == nil || selectedGroup == nil)
                 }
             }
         }
         .confirmationDialog("Delete \(allocation.name)?", isPresented: $confirmingDeletion,
                             titleVisibility: .visible) {
             Button("Delete Allocation", role: .destructive) {
-                onDelete()
-                dismiss()
+                Task { isSaving = true; await onDelete(); dismiss() }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("\(allocation.rule.amount(income: income).tenge) will become Unallocated.")
         }
+        .interactiveDismissDisabled(isSaving)
         .tint(.green)
+    }
+
+    private func apply() async {
+        guard !isSaving, let rule else { return }
+        isSaving = true; defer { isSaving = false }
+        await onApply(rule, selectedGroupID)
+        dismiss()
     }
 }
 

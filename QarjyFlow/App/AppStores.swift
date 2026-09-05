@@ -5,12 +5,14 @@ import Foundation
 struct AppStores {
     let categories: any CategoryStore
     let transactions: any TransactionStore
+    let plans: any PlanStore
 
     static func live() async throws -> AppStores {
         let database = try await LedgerDatabase.open()
         return AppStores(
             categories: SwiftDataCategoryStore(database: database),
-            transactions: SwiftDataTransactionStore(database: database)
+            transactions: SwiftDataTransactionStore(database: database),
+            plans: SwiftDataPlanStore(database: database)
         )
     }
 

@@ -19,13 +19,20 @@ enum PlanPreviewData {
     ]
 
     static let allocations: [PlanAllocation] = [
-        .init(id: UUID(), name: "Rent", symbol: "house.fill", groupID: needsID, tracksContribution: false, rule: .fixed(250_000)),
-        .init(id: UUID(), name: "Groceries", symbol: "basket.fill", groupID: needsID, tracksContribution: false, rule: .fixed(100_000)),
-        .init(id: UUID(), name: "Transport", symbol: "bus.fill", groupID: needsID, tracksContribution: false, rule: .fixed(40_000)),
-        .init(id: UUID(), name: "Investments", symbol: "chart.line.uptrend.xyaxis", groupID: futureID, tracksContribution: true, rule: .percentage(30)),
-        .init(id: UUID(), name: "Emergency fund", symbol: "shield.fill", groupID: futureID, tracksContribution: true, rule: .percentage(5)),
-        .init(id: UUID(), name: "Entertainment", symbol: "sparkles", groupID: lifestyleID, tracksContribution: false, rule: .fixed(50_000)),
-        .init(id: UUID(), name: "Subscriptions", symbol: "play.rectangle.fill", groupID: lifestyleID, tracksContribution: false, rule: .fixed(15_000)),
-        .init(id: UUID(), name: "Flexible spending", symbol: "leaf.fill", groupID: freeID, tracksContribution: false, rule: .fixed(35_000))
+        .init(id: UUID(), name: "Rent", symbol: "house.fill", groupID: needsID, categoryID: nil, tracksContribution: false, rule: .fixed(250_000)),
+        .init(id: UUID(), name: "Groceries", symbol: "basket.fill", groupID: needsID, categoryID: nil, tracksContribution: false, rule: .fixed(100_000)),
+        .init(id: UUID(), name: "Transport", symbol: "bus.fill", groupID: needsID, categoryID: nil, tracksContribution: false, rule: .fixed(40_000)),
+        .init(id: UUID(), name: "Investments", symbol: "chart.line.uptrend.xyaxis", groupID: futureID, categoryID: nil, tracksContribution: true, rule: .percentage(30)),
+        .init(id: UUID(), name: "Emergency fund", symbol: "shield.fill", groupID: futureID, categoryID: nil, tracksContribution: true, rule: .percentage(5)),
+        .init(id: UUID(), name: "Entertainment", symbol: "sparkles", groupID: lifestyleID, categoryID: nil, tracksContribution: false, rule: .fixed(50_000)),
+        .init(id: UUID(), name: "Subscriptions", symbol: "play.rectangle.fill", groupID: lifestyleID, categoryID: nil, tracksContribution: false, rule: .fixed(15_000)),
+        .init(id: UUID(), name: "Flexible spending", symbol: "leaf.fill", groupID: freeID, categoryID: nil, tracksContribution: false, rule: .fixed(35_000))
     ]
+
+    static var plan: MonthlyPlan {
+        MonthlyPlan(id: UUID(uuidString: "30000000-0000-0000-0000-000000000001")!,
+                    month: PlanMonth(year: 2026, month: 8), incomeSources: incomeSources,
+                    groups: groups, allocations: allocations)
+    }
+
 }

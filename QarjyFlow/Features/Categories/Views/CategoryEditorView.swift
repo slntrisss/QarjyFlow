@@ -9,7 +9,8 @@ struct CategoryEditorView: View {
     @State private var errorMessage: String?
     @State private var isSaving = false
 
-    init(category: CategoryItem? = nil, onSave: @escaping @MainActor (CategoryDraft, UUID?) async throws -> Void) {
+    init(category: CategoryItem? = nil, suggestedColor: ThemeColor = .green,
+         onSave: @escaping @MainActor (CategoryDraft, UUID?) async throws -> Void) {
         self.category = category
         self.onSave = onSave
         // Keep initialization on the main actor instead of passing an isolated
@@ -17,7 +18,7 @@ struct CategoryEditorView: View {
         if let category {
             _draft = State(initialValue: CategoryDraft(category: category))
         } else {
-            _draft = State(initialValue: CategoryDraft())
+            _draft = State(initialValue: CategoryDraft(suggestedColor: suggestedColor))
         }
     }
 
@@ -32,6 +33,10 @@ struct CategoryEditorView: View {
                         ForEach(CategoryKind.allCases) { kind in
                             Text(kind.title).tag(kind)
                         }
+                    }
+                    if category != nil {
+                        Text("You can change the type until this category is used by Activity or Plan.")
+                            .font(.footnote).foregroundStyle(.secondary)
                     }
                 }
                 Section("Icon") {
@@ -49,8 +54,8 @@ struct CategoryEditorView: View {
                     ))
                 }
                 Section {
-                    Text("A category labels transactions; it does not hold a balance. Record actual amounts in Activity. Monthly budget planning will be added separately.")
-                    Text("Moving money to your own savings or investment account is a transfer, not an expense. Transfer entry is not available yet.")
+                    Text("A category labels transactions; it does not hold a balance. Record actual amounts in Activity and planned amounts in Plan.")
+                    Text("Moving cash between your own accounts is a transfer. Buying an investment is an asset purchase. Neither flow is recorded by the current Activity editor yet.")
                 }
                 .font(.footnote)
                 .foregroundStyle(.secondary)

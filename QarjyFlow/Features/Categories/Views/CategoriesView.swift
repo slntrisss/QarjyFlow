@@ -6,6 +6,11 @@ struct CategoriesView: View {
     @State private var editing: CategoryItem?
     @State private var deleting: CategoryItem?
 
+    private var suggestedColor: ThemeColor {
+        let palette = ThemeColor.allCases
+        return palette[model.categories.count % palette.count]
+    }
+
     init(store: any CategoryStore) {
         _model = State(initialValue: CategoriesViewModel(store: store))
     }
@@ -53,6 +58,7 @@ struct CategoriesView: View {
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Delete", role: .destructive) { deleting = category }
+                                    .tint(.red)
                                 Button(category.isArchived ? "Restore" : "Archive") {
                                     Task { await model.setArchived(!category.isArchived, category: category) }
                                 }
@@ -93,7 +99,7 @@ struct CategoriesView: View {
         .task { await model.load() }
         .refreshable { await model.load() }
         .sheet(isPresented: $isAdding) {
-            CategoryEditorView(onSave: model.save)
+            CategoryEditorView(suggestedColor: suggestedColor, onSave: model.save)
         }
         .sheet(item: $editing) { category in
             CategoryEditorView(category: category, onSave: model.save)

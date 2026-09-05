@@ -70,7 +70,8 @@ final class CategoryRepository {
 
     private func isUsed(_ id: UUID) throws -> Bool {
         let descriptor = FetchDescriptor<TransactionRecord>(predicate: #Predicate { $0.categoryID == id })
-        return try context.fetchCount(descriptor) > 0
+        if try context.fetchCount(descriptor) > 0 { return true }
+        return try context.fetch(FetchDescriptor<PlanAllocationRecord>()).contains { $0.categoryID == id }
     }
 
     private func find(_ id: UUID) throws -> CategoryRecord {

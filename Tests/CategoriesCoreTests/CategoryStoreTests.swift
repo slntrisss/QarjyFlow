@@ -99,7 +99,7 @@ final class CategoryStoreTests: XCTestCase {
             let store = CategoryRepository(container: try AppDatabase.makeContainer(url: url))
             return try store.save(draft("Food"), id: nil).id
         }
-        let schema = Schema([CategoryRecord.self, TransactionRecord.self])
+        let schema = AppDatabase.schema
         let configuration = ModelConfiguration(
             schema: schema, url: url, allowsSave: false, cloudKitDatabase: .none
         )

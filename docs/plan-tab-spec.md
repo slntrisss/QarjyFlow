@@ -6,7 +6,7 @@ Imported from the accessible ChatGPT conversation **Plan Personal Finance App**,
 
 The user's expressed aim is to distribute salary, understand where money goes, compare intentions with actual spending, and build a clear monthly financial picture. The specific screens below were proposed in that conversation; importing them does not mean every suggested detail has been separately approved. They are the working design direction, with unresolved rules explicitly listed below.
 
-This document is the product context handoff. The Plan overview, expected-income source editor, allocation editor, and customizable-section manager now exist as an interactive, session-only sample with component previews. Plan storage and real budget behavior are not implemented.
+This document is the product context handoff. The Plan overview, expected-income editor, allocation editor, and customizable-section manager now operate on a locally persisted monthly plan. Named component previews use isolated in-memory fixtures.
 
 ## Purpose
 
@@ -112,14 +112,13 @@ Already implemented:
 
 Missing for Plan:
 
-- Monthly plan, planned-income, and allocation storage.
-- Allocation groups and Future planning purposes.
-- Production fixed/percentage allocation rules (the prototype demonstrates provisional calculations).
 - Planned-versus-actual views, budget moves, and copy-month behavior.
+- Month navigation and reusable plan templates.
+- Explicit contribution records for Future purposes.
 
 Accounts/transfers and investment purchases are not implemented. Therefore the proposed Future contribution progress is not currently backed by real data. Production category and transaction persistence now runs through one shared background actor with asynchronous store boundaries; observable UI state remains on MainActor.
 
-The current category deletion/type-change guards cover transaction references only. Plan references must also be protected when introduced. Archiving should preserve historical allocations.
+Category deletion and type-change guards cover transaction and Plan references. Archiving preserves existing historical allocations while excluding the category from new allocations.
 
 ## Rules to settle before implementation
 
@@ -145,6 +144,6 @@ These are engineering/product questions exposed by the source, not decisions alr
 
 Use feature-oriented MVVM, one primary type per file, reusable UI components, and previews for every new view. Test monetary calculations, month boundaries, copy independence, category protections, failure recovery, and migration before considering the feature complete.
 
-## Implemented design prototype
+## Implemented persisted slice
 
-The Plan tab currently opens an explicitly labeled sample. Expected monthly income is derived from user-editable planned sources; these never create Activity transactions. Every new view has a named preview. Its section manager demonstrates adding, renaming, styling, reordering, and confirmed cascading deletion of user-defined groups. The allocation editor can move or delete an allocation. Deleting an allocation changes planning only and never deletes an Activity transaction. The fixed/percentage editor updates only session state; it does not save plans, create categories, or generate transactions. The sample treats Free as an explicit allocation, allows over-allocation with a warning, and rounds percentage results to two fractional currency digits using half-up rounding. These choices make the prototype testable and do not settle the open production rules above. Income editing, actuals, month navigation, category selection, moves, and copies remain future work.
+Plan creates an empty record for the current month and stores expected-income sources, custom ordered sections, and fixed or percentage allocations locally. Expense allocations reference dynamic expense categories; Future purposes can exist without a category. Expected income never creates an Activity transaction. Deleting an allocation or section returns its amount to Unallocated and never deletes Activity data. Category guards prevent deleting or changing the type of a referenced category. Every view retains a named preview backed by isolated fixtures. Planned-versus-actual values, month navigation, budget moves, copies, and Future contribution tracking remain future work.

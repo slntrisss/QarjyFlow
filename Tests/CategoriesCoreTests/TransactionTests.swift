@@ -193,6 +193,34 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(summary.count, 3)
     }
 
+    @MainActor
+    func testSavedIncomeAppearsInReloadedHomeSummary() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        let categoryStore = SwiftDataCategoryStore(database: database)
+        var categoryDraft = CategoryDraft()
+        categoryDraft.name = "Salary"
+        categoryDraft.kind = .income
+        let salary = try await categoryStore.save(categoryDraft, id: nil)
+
+        let store = SwiftDataTransactionStore(database: database)
+        let activity = TransactionsViewModel(store: store)
+        await activity.load()
+        var income = TransactionDraft()
+        income.amountText = "1032000"
+        income.kind = .income
+        income.categoryID = salary.id
+        income.date = Date()
+        try await activity.save(income, id: nil)
+
+        let reopenedHome = TransactionsViewModel(store: store)
+        await reopenedHome.load()
+        let summary = TransactionSummary(transactions: reopenedHome.transactions)
+        XCTAssertEqual(summary.income, 1_032_000)
+        XCTAssertEqual(summary.expense, 0)
+        XCTAssertEqual(summary.net, 1_032_000)
+        XCTAssertEqual(summary.count, 1)
+    }
+
     func testViewModelUpdatesAfterSaveDeleteAndNewCategoryCreation() async throws {
         let database = try await LedgerDatabase.open(inMemory: true)
         let categories = SwiftDataCategoryStore(database: database)
@@ -233,7 +261,7 @@ final class TransactionTests: XCTestCase {
             let original = try TransactionRepository(container: container).save(draft(category), id: nil)
             return (category, original)
         }
-        let schema = Schema([CategoryRecord.self, TransactionRecord.self])
+        let schema = AppDatabase.schema
         let config = ModelConfiguration(schema: schema, url: url, allowsSave: false, cloudKitDatabase: .none)
         let container = try ModelContainer(for: schema, configurations: [config])
         let store = TransactionRepository(container: container)

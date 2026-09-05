@@ -13,7 +13,9 @@ struct CategoryDraft: Sendable {
         "gift.fill", "briefcase.fill", "banknote.fill"
     ]
 
-    init() {}
+    init(suggestedColor: ThemeColor = .green) {
+        color = suggestedColor
+    }
 
     init(category: CategoryItem) {
         name = category.name

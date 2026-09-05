@@ -33,7 +33,7 @@ struct ContentView: View {
                 ActivityView(model: model, categoryStore: stores.categories)
             }
             .tabItem { Label("Activity", systemImage: "list.bullet.rectangle") }.tag(1)
-            NavigationStack { PlanPreviewView() }
+            NavigationStack { PlanView(store: stores.plans, categories: model.categories) }
                 .tabItem { Label("Plan", systemImage: "chart.pie") }.tag(2)
         }
         .tint(.green)

@@ -2,12 +2,13 @@ import SwiftUI
 
 struct PlanGroupEditorView: View {
     let group: PlanGroup?
-    let onSave: (PlanGroupDraft, UUID?) -> String?
+    let onSave: (PlanGroupDraft, UUID?) async -> String?
     @Environment(\.dismiss) private var dismiss
     @State private var draft: PlanGroupDraft
     @State private var errorMessage: String?
+    @State private var isSaving = false
 
-    init(group: PlanGroup? = nil, onSave: @escaping (PlanGroupDraft, UUID?) -> String?) {
+    init(group: PlanGroup? = nil, onSave: @escaping (PlanGroupDraft, UUID?) async -> String?) {
         self.group = group
         self.onSave = onSave
         _draft = State(initialValue: group.map(PlanGroupDraft.init) ?? PlanGroupDraft())
@@ -34,7 +35,7 @@ struct PlanGroupEditorView: View {
                     Section { Text(errorMessage)
                         .foregroundStyle(.red) }
                 }
-                Section { Text("Design preview only. This section resets when the app restarts.")
+                Section { Text("This section belongs to the selected monthly plan.")
                     .font(.footnote).foregroundStyle(.secondary) }
             }
             .navigationTitle(group == nil ? "New Section" : "Edit Section")
@@ -42,17 +43,20 @@ struct PlanGroupEditorView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        if let message = onSave(draft, group?.id) {
-                            errorMessage = message
-                        } else {
-                            dismiss()
-                        }
-                    }
+                    Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
+                        .disabled(isSaving)
                 }
             }
         }
+        .interactiveDismissDisabled(isSaving)
         .tint(.green)
+    }
+
+    private func save() async {
+        guard !isSaving else { return }
+        isSaving = true; defer { isSaving = false }
+        if let message = await onSave(draft, group?.id) { errorMessage = message }
+        else { dismiss() }
     }
 }
 
