@@ -66,6 +66,7 @@ struct CategoryEditorView: View {
                     }
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(category == nil ? "New Category" : "Edit Category")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

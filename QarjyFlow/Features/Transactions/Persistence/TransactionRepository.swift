@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// Production instance is confined to LedgerDatabase; preview/test instances stay on their own executor.
 /// Never share a repository across executors.
@@ -71,6 +72,7 @@ final class TransactionRepository {
     private func commit(_ context: ModelContext) throws {
         do { try context.save() }
         catch {
+            AppLog.persistence.error("Transaction save failed: \(String(describing: error), privacy: .private(mask: .hash))")
             context.rollback()
             // The failed context is discarded when this operation exits.
             throw error

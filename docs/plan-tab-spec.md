@@ -115,6 +115,7 @@ Missing for Plan:
 - Planned-versus-actual views, budget moves, and copy-month behavior.
 - Month navigation and reusable plan templates.
 - Explicit contribution records for Future purposes.
+- Optional due dates and local notification reminders for obligations such as rent.
 
 Accounts/transfers and investment purchases are not implemented. Therefore the proposed Future contribution progress is not currently backed by real data. Production category and transaction persistence now runs through one shared background actor with asynchronous store boundaries; observable UI state remains on MainActor.
 

@@ -38,6 +38,7 @@ struct PlanGroupEditorView: View {
                 Section { Text("This section belongs to the selected monthly plan.")
                     .font(.footnote).foregroundStyle(.secondary) }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(group == nil ? "New Section" : "Edit Section")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

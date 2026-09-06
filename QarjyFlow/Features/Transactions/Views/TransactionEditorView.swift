@@ -10,6 +10,7 @@ struct TransactionEditorView: View {
     @State private var draft: TransactionDraft
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @State private var amountFocused = false
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -45,9 +46,11 @@ struct TransactionEditorView: View {
                     }
                     .pickerStyle(.segmented)
                     LabeledContent("Amount · KZT") {
-                        AmountTextField(rawText: $draft.amountText)
+                        AmountTextField(rawText: $draft.amountText, isFocused: $amountFocused)
                             .frame(minHeight: 44)
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { amountFocused = true }
                     .font(.title3)
                 } footer: {
                     Text("Spaces are added automatically: 1000 becomes 1 000. Use a dot or comma for up to two decimal places.")
@@ -89,6 +92,7 @@ struct TransactionEditorView: View {
                         .font(.footnote).foregroundStyle(.secondary)
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(transaction == nil ? "Add Transaction" : "Edit Transaction")
             .navigationBarTitleDisplayMode(.inline)
             .onChange(of: draft.kind) { _, _ in draft.categoryID = nil }
@@ -97,6 +101,10 @@ struct TransactionEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
                         .disabled(draft.categoryID == nil || draft.amountText.isEmpty)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { amountFocused = false }
                 }
             }
         }

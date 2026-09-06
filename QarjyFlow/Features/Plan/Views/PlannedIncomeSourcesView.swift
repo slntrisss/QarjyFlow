@@ -50,6 +50,7 @@ struct PlannedIncomeSourcesView: View {
                 .font(.footnote).foregroundStyle(.secondary) }
         }
         .navigationTitle("Expected Income")
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
             ToolbarItem(placement: .primaryAction) {
@@ -76,5 +77,5 @@ struct PlannedIncomeSourcesView: View {
 }
 
 #Preview("Expected income · multiple editable sources") {
-    NavigationStack { PlannedIncomeSourcesView(model: PlanViewModel()) }.tint(.green)
+    NavigationStack { PlannedIncomeSourcesView(model: PlanViewModel(initialPlan: PlanPreviewData.plan)) }.tint(.green)
 }

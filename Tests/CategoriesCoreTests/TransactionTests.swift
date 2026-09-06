@@ -193,6 +193,28 @@ final class TransactionTests: XCTestCase {
         XCTAssertEqual(summary.count, 3)
     }
 
+    func testTransactionDateFiltersUseInclusiveCalendarDays() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let formatter = ISO8601DateFormatter()
+        let now = formatter.date(from: "2026-09-06T12:00:00Z")!
+        let from = formatter.date(from: "2026-08-15T00:00:00Z")!
+        let to = formatter.date(from: "2026-08-20T00:00:00Z")!
+        // Rolling seven-day boundary requested by the product: August 30 through now.
+        XCTAssertTrue(TransactionDateFilter.last7Days.includes(
+            formatter.date(from: "2026-08-30T00:00:00Z")!, from: from, to: to, now: now, calendar: calendar))
+        XCTAssertFalse(TransactionDateFilter.last7Days.includes(
+            formatter.date(from: "2026-08-29T23:59:59Z")!, from: from, to: to, now: now, calendar: calendar))
+        XCTAssertTrue(TransactionDateFilter.lastMonth.includes(
+            formatter.date(from: "2026-08-06T00:00:00Z")!, from: from, to: to, now: now, calendar: calendar))
+        XCTAssertFalse(TransactionDateFilter.lastMonth.includes(
+            formatter.date(from: "2026-08-05T23:59:59Z")!, from: from, to: to, now: now, calendar: calendar))
+        XCTAssertTrue(TransactionDateFilter.specifiedPeriod.includes(
+            formatter.date(from: "2026-08-20T23:59:59Z")!, from: from, to: to, now: now, calendar: calendar))
+        XCTAssertFalse(TransactionDateFilter.specifiedPeriod.includes(
+            formatter.date(from: "2026-08-21T00:00:00Z")!, from: from, to: to, now: now, calendar: calendar))
+    }
+
     @MainActor
     func testSavedIncomeAppearsInReloadedHomeSummary() async throws {
         let database = try await LedgerDatabase.open(inMemory: true)
@@ -229,6 +251,9 @@ final class TransactionTests: XCTestCase {
         foodDraft.name = "Food"
         let food = try await categories.save(foodDraft, id: nil)
         let model = TransactionsViewModel(store: store)
+        model.dateFilter = .specifiedPeriod
+        model.customFromDate = .distantPast
+        model.customToDate = Date()
         await model.load()
         try await model.save(draft(food), id: nil)
         var newCategory = CategoryDraft()

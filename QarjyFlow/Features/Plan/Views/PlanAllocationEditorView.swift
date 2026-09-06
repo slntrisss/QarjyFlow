@@ -14,6 +14,7 @@ struct PlanAllocationEditorView: View {
     @State private var percentText: String
     @State private var confirmingDeletion = false
     @State private var isSaving = false
+    @State private var valueFocused = false
 
     init(allocation: PlanAllocation, groups: [PlanGroup], income: Decimal, otherAllocated: Decimal,
          onApply: @escaping (PlanAllocationRule, UUID) async -> Void,
@@ -58,14 +59,20 @@ struct PlanAllocationEditorView: View {
                     if usePercentage {
                         LabeledContent("Percent") {
                             AmountTextField(rawText: $percentText, placeholder: "30",
-                                inputLabel: "Percentage of expected income", inputIdentifier: "plan.percentage")
+                                inputLabel: "Percentage of expected income", inputIdentifier: "plan.percentage",
+                                isFocused: $valueFocused)
                                 .frame(minHeight: 44)
                             Text("%")
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture { valueFocused = true }
                     } else {
                         LabeledContent("Amount · KZT") {
-                            AmountTextField(rawText: $amountText, inputIdentifier: "plan.amount").frame(minHeight: 44)
+                            AmountTextField(rawText: $amountText, inputIdentifier: "plan.amount",
+                                            isFocused: $valueFocused).frame(minHeight: 44)
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture { valueFocused = true }
                     }
                     Text(usePercentage
                          ? "Based on expected income of \(income.tenge), not recorded income. Enter more than 0 and up to 100%."
@@ -93,12 +100,16 @@ struct PlanAllocationEditorView: View {
                     Text("Deleting returns this planned amount to Unallocated and does not delete any Activity transaction.")
                 }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Edit Allocation").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving…" : "Save") { Task { await apply() } }
                         .disabled(isSaving || rule == nil || selectedGroup == nil)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer(); Button("Done") { valueFocused = false }
                 }
             }
         }

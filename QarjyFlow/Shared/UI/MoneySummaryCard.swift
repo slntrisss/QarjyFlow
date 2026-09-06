@@ -8,7 +8,10 @@ struct MoneySummaryCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.caption).foregroundStyle(color)
-            Text(amount.tenge).font(.subheadline.bold()).fixedSize()
+            Text(amount.tenge)
+                .font(.subheadline.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .frame(maxWidth: .infinity, alignment: .leading).padding(12)
         .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))

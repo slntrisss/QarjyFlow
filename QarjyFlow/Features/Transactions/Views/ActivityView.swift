@@ -7,6 +7,7 @@ struct ActivityView: View {
     @State private var editing: TransactionItem?
     @State private var deleting: TransactionItem?
     @State private var preparingToAdd = false
+    @State private var showingFilters = false
 
     var body: some View {
         List {
@@ -23,6 +24,14 @@ struct ActivityView: View {
                 Text("Expense").tag(Optional(CategoryKind.expense))
             }
             .pickerStyle(.segmented)
+            Button { showingFilters = true } label: {
+                HStack {
+                    Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
+                    Spacer()
+                    Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
+                }
+            }
+            .foregroundStyle(.primary)
             if model.hasLoaded && model.visibleTransactions.isEmpty {
                 ContentUnavailableView {
                     Label("No transactions", systemImage: "list.bullet.rectangle")
@@ -49,6 +58,11 @@ struct ActivityView: View {
         .navigationTitle("Activity")
         .disabled(model.isMutating || preparingToAdd)
         .searchable(text: $model.searchText, prompt: "Category, merchant, or note")
+        .scrollDismissesKeyboard(.interactively)
+        .onChange(of: model.filter) { _, _ in
+            if let id = model.categoryFilterID,
+               !model.filterCategories.contains(where: { $0.id == id }) { model.categoryFilterID = nil }
+        }
         .refreshable { await model.load() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
@@ -67,6 +81,7 @@ struct ActivityView: View {
             TransactionEditorView(transaction: item, categories: model.categories, categoryStore: categoryStore,
                                   onCategoriesChanged: reloadCategories, onSave: model.save)
         }
+        .sheet(isPresented: $showingFilters) { ActivityFiltersView(model: model) }
         .confirmationDialog("Delete transaction?", isPresented: Binding(
             get: { deleting != nil }, set: { if !$0 { deleting = nil } }
         ), titleVisibility: .visible) {

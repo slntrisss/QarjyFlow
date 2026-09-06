@@ -15,6 +15,7 @@ struct PlanAllocationCreatorView: View {
     @State private var percentText = ""
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @State private var valueFocused = false
 
     init(groups: [PlanGroup], categories: [CategoryItem], income: Decimal,
          onSave: @escaping (PlanAllocation) async -> String?) {
@@ -68,15 +69,21 @@ struct PlanAllocationCreatorView: View {
                     if usePercentage {
                         LabeledContent("Percent") {
                             AmountTextField(rawText: $percentText, placeholder: "10",
-                                inputLabel: "Percentage of expected income", inputIdentifier: "plan.new.percentage")
+                                inputLabel: "Percentage of expected income", inputIdentifier: "plan.new.percentage",
+                                isFocused: $valueFocused)
                                 .frame(minHeight: 44)
                             Text("%")
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture { valueFocused = true }
                     } else {
                         LabeledContent("Amount · KZT") {
-                            AmountTextField(rawText: $amountText, inputIdentifier: "plan.new.amount")
+                            AmountTextField(rawText: $amountText, inputIdentifier: "plan.new.amount",
+                                            isFocused: $valueFocused)
                                 .frame(minHeight: 44)
                         }
+                        .contentShape(Rectangle())
+                        .onTapGesture { valueFocused = true }
                     }
                     if let rule {
                         LabeledContent("Planned", value: rule.amount(income: income).tenge)
@@ -88,12 +95,16 @@ struct PlanAllocationCreatorView: View {
                 Section { Text("Saving and investment purposes are planning labels for now. Recording deposits and investment purchases will require the upcoming account and transfer flow.")
                     .font(.footnote).foregroundStyle(.secondary) }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle("Add Allocation").navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
                         .disabled(isSaving || !canSave)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer(); Button("Done") { valueFocused = false }
                 }
             }
         }.interactiveDismissDisabled(isSaving).tint(.green)

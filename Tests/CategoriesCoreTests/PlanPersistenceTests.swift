@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import XCTest
 @testable import CategoriesCore
 
@@ -39,6 +40,52 @@ final class PlanPersistenceTests: XCTestCase {
         let reopened = try await LedgerDatabase.open(url: url)
         let loaded = try await reopened.fetchPlan(month: input.month)
         XCTAssertEqual(loaded, input)
+    }
+
+    func testPopulatedUnversionedLedgerOpensWithVersionedMigrationPlan() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("legacy-full.store")
+        let month = PlanMonth(year: 2026, month: 8)
+        var expectedCategoryID: UUID!
+        var expectedTransactionID: UUID!
+        var expectedPlanID: UUID!
+
+        try autoreleasepool {
+            let legacySchema = Schema([
+                CategoryRecord.self, TransactionRecord.self, MonthlyPlanRecord.self,
+                PlannedIncomeRecord.self, PlanGroupRecord.self, PlanAllocationRecord.self
+            ])
+            let configuration = ModelConfiguration(
+                schema: legacySchema, url: url, cloudKitDatabase: .none
+            )
+            let container = try ModelContainer(for: legacySchema, configurations: [configuration])
+            let categories = CategoryRepository(container: container)
+            var categoryDraft = CategoryDraft()
+            categoryDraft.name = "Rent"
+            let category = try categories.save(categoryDraft, id: nil)
+            expectedCategoryID = category.id
+
+            var transactionDraft = TransactionDraft()
+            transactionDraft.amountText = "300000"
+            transactionDraft.categoryID = category.id
+            let transaction = try TransactionRepository(container: container).save(transactionDraft, id: nil)
+            expectedTransactionID = transaction.id
+
+            let value = plan(month: month, category: category)
+            _ = try PlanRepository(container: container).save(value)
+            expectedPlanID = value.id
+        }
+
+        let migrated = try await LedgerDatabase.open(url: url)
+        let snapshot = try await migrated.fetchSnapshot()
+        let loadedPlan = try await migrated.fetchPlan(month: month)
+        XCTAssertEqual(snapshot.categories.first?.id, expectedCategoryID)
+        XCTAssertEqual(snapshot.transactions.first?.id, expectedTransactionID)
+        XCTAssertEqual(loadedPlan?.id, expectedPlanID)
+        XCTAssertEqual(loadedPlan?.allocations.first?.categoryID, expectedCategoryID)
+        XCTAssertEqual(loadedPlan?.income, 800_000)
     }
 
     func testCategoryReferencedByPlanCannotBeDeletedUntilAllocationIsRemoved() async throws {

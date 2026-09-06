@@ -51,8 +51,10 @@ struct HomeLedgerView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Recent transactions").font(.headline)
-                    ForEach(Array(model.transactions.prefix(5))) { item in
+                    let recent = Array(model.transactions.prefix(5))
+                    ForEach(Array(recent.enumerated()), id: \.element.id) { index, item in
                         TransactionRow(transaction: item, category: model.category(for: item))
+                        if index < recent.count - 1 { Divider() }
                     }
                 }
             }

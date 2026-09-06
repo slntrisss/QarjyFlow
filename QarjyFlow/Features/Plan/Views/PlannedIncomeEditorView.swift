@@ -7,6 +7,7 @@ struct PlannedIncomeEditorView: View {
     @State private var draft: PlannedIncomeDraft
     @State private var errorMessage: String?
     @State private var isSaving = false
+    @State private var amountFocused = false
 
     init(source: PlannedIncomeSource? = nil,
          onSave: @escaping (PlannedIncomeDraft, UUID?) async -> String?) {
@@ -24,9 +25,12 @@ struct PlannedIncomeEditorView: View {
                     LabeledContent("Amount · KZT") {
                         AmountTextField(rawText: $draft.amountText,
                                         inputLabel: "Expected income amount",
-                                        inputIdentifier: "plan.income.amount")
+                                        inputIdentifier: "plan.income.amount",
+                                        isFocused: $amountFocused)
                             .frame(minHeight: 44)
                     }
+                    .contentShape(Rectangle())
+                    .onTapGesture { amountFocused = true }
                 } header: {
                     Text("Expected income")
                 } footer: {
@@ -39,6 +43,7 @@ struct PlannedIncomeEditorView: View {
                 Section { Text("This source belongs to the selected monthly plan.")
                     .font(.footnote).foregroundStyle(.secondary) }
             }
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(source == nil ? "Add Expected Income" : "Edit Expected Income")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -46,6 +51,9 @@ struct PlannedIncomeEditorView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(isSaving ? "Saving…" : "Save") { Task { await save() } }
                         .disabled(isSaving || draft.trimmedName.isEmpty || draft.amountText.isEmpty)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer(); Button("Done") { amountFocused = false }
                 }
             }
         }.interactiveDismissDisabled(isSaving).tint(.green)

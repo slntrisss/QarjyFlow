@@ -1,4 +1,5 @@
 import SwiftUI
+import os
 
 /// Opens the local database once. Failure never silently replaces it with an empty store.
 struct AppRootView: View {
@@ -37,6 +38,7 @@ struct AppRootView: View {
             store = try await makeStore()
             failedToOpen = false
         } catch {
+            AppLog.app.error("Failed to open local database: \(String(describing: error), privacy: .private(mask: .hash))")
             failedToOpen = true
         }
     }

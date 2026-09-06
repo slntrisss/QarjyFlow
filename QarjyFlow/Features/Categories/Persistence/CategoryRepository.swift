@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// Production instance is confined to LedgerDatabase; preview/test instances stay on their own executor.
 /// Never share a repository across executors.
@@ -25,7 +26,8 @@ final class CategoryRepository {
         try draft.validate()
         let records = try context.fetch(FetchDescriptor<CategoryRecord>())
         guard !records.contains(where: {
-            $0.id != id && $0.kindRawValue == draft.kind.rawValue && $0.normalizedName == draft.normalizedName
+            !$0.isArchived && $0.id != id && $0.kindRawValue == draft.kind.rawValue &&
+            $0.normalizedName == draft.normalizedName
         }) else { throw CategoryError.duplicateName }
 
         let record: CategoryRecord
@@ -40,6 +42,14 @@ final class CategoryRepository {
             record.kindRawValue = draft.kind.rawValue
             record.symbol = draft.symbol
             record.colorRawValue = draft.color.rawValue
+        } else if let archived = records.first(where: {
+            $0.isArchived && $0.kindRawValue == draft.kind.rawValue && $0.normalizedName == draft.normalizedName
+        }) {
+            record = archived
+            record.name = draft.trimmedName
+            record.symbol = draft.symbol
+            record.colorRawValue = draft.color.rawValue
+            record.isArchived = false
         } else {
             record = CategoryRecord(draft: draft)
             context.insert(record)
@@ -84,6 +94,7 @@ final class CategoryRepository {
         do {
             try context.save()
         } catch {
+            AppLog.persistence.error("Category save failed: \(String(describing: error), privacy: .private(mask: .hash))")
             context.rollback()
             // A failed SwiftData save can leave registered objects reflecting edits
             // even after rollback. Never reuse that context for subsequent reads.

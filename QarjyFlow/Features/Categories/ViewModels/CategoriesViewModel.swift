@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 @MainActor
 @Observable
@@ -10,7 +11,6 @@ final class CategoriesViewModel {
     private(set) var isLoading = false
     @ObservationIgnored private var revision = 0
     var searchText = ""
-    var showArchived = false
     var errorMessage: String?
     @ObservationIgnored private let store: any CategoryStore
 
@@ -18,7 +18,7 @@ final class CategoriesViewModel {
 
     var visibleCategories: [CategoryItem] {
         categories.filter {
-            $0.isArchived == showArchived &&
+            !$0.isArchived &&
             (searchText.isEmpty || $0.name.localizedStandardContains(searchText))
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
@@ -37,6 +37,7 @@ final class CategoriesViewModel {
             errorMessage = nil
         } catch {
             guard request == revision, !Task.isCancelled else { return }
+            AppLog.categories.error("Load failed: \(String(describing: error), privacy: .private(mask: .hash))")
             errorMessage = "Could not load your categories. Please try again."
         }
     }
@@ -51,19 +52,6 @@ final class CategoriesViewModel {
         replace(saved)
     }
 
-    func setArchived(_ archived: Bool, category: CategoryItem) async {
-        guard !isMutating else { return }
-        isMutating = true
-        isLoading = false
-        revision += 1
-        defer { isMutating = false }
-        do {
-            replace(try await store.setArchived(archived, id: category.id))
-        } catch {
-            errorMessage = "Could not update this category. Please try again."
-        }
-    }
-
     func delete(_ category: CategoryItem) async {
         guard !isMutating else { return }
         isMutating = true
@@ -76,6 +64,7 @@ final class CategoriesViewModel {
         } catch let error as CategoryError {
             errorMessage = error.localizedDescription
         } catch {
+            AppLog.categories.error("Delete failed: \(String(describing: error), privacy: .private(mask: .hash))")
             errorMessage = "Could not delete this category. Please try again."
         }
     }

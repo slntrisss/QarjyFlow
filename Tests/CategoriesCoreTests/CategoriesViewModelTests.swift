@@ -17,10 +17,9 @@ final class CategoriesViewModelTests: XCTestCase {
         model.searchText = "missing"
         XCTAssertTrue(model.visibleCategories.isEmpty)
         model.searchText = ""
-        await model.setArchived(true, category: item)
+        _ = try await database.setArchived(true, id: item.id)
+        await model.load()
         XCTAssertTrue(model.visibleCategories.isEmpty)
-        model.showArchived = true
-        XCTAssertEqual(model.visibleCategories.first?.id, item.id)
         await model.delete(item)
         XCTAssertTrue(model.categories.isEmpty)
     }

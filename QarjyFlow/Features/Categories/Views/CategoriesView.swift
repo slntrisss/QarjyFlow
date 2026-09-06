@@ -28,24 +28,13 @@ struct CategoriesView: View {
                     Button("Reload") { Task { await model.load() } }
                 }
             }
-            Section {
-                Picker("Category status", selection: $model.showArchived) {
-                    Text("Active").tag(false)
-                    Text("Archived").tag(true)
-                }
-                .pickerStyle(.segmented)
-            }
             if model.hasLoaded && model.visibleCategories.isEmpty {
                 ContentUnavailableView {
                     Label(model.searchText.isEmpty ? "No categories yet" : "No matching categories", systemImage: "tag")
                 } description: {
-                    Text(model.showArchived
-                         ? "Archived categories appear here. Restore one to use it again."
-                         : "Create categories that fit your life. They are saved on this iPhone.")
+                    Text("Create categories that fit your life. They are saved on this iPhone.")
                 } actions: {
-                    if !model.showArchived {
-                        Button("Add Category") { isAdding = true }
-                    }
+                    Button("Add Category") { isAdding = true }
                 }
             }
             ForEach(CategoryKind.allCases) { kind in
@@ -59,16 +48,9 @@ struct CategoriesView: View {
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button("Delete", role: .destructive) { deleting = category }
                                     .tint(.red)
-                                Button(category.isArchived ? "Restore" : "Archive") {
-                                    Task { await model.setArchived(!category.isArchived, category: category) }
-                                }
-                                .tint(category.isArchived ? .green : .orange)
                             }
                             .contextMenu {
                                 Button("Edit", systemImage: "pencil") { editing = category }
-                                Button(category.isArchived ? "Restore" : "Archive", systemImage: "archivebox") {
-                                    Task { await model.setArchived(!category.isArchived, category: category) }
-                                }
                                 Button("Delete", systemImage: "trash", role: .destructive) { deleting = category }
                             }
                         }
@@ -83,6 +65,7 @@ struct CategoriesView: View {
         .navigationTitle("Categories")
         .disabled(model.isMutating)
         .searchable(text: $model.searchText, prompt: "Find a category")
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { isAdding = true } label: {
@@ -112,7 +95,7 @@ struct CategoriesView: View {
             }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: {
-            Text("This permanently removes the category. Archive it instead if you may want it later.")
+            Text("This permanently removes the category. Categories used by Activity or Plan cannot be deleted.")
         }
         .alert("Categories", isPresented: Binding(
             get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } }

@@ -34,6 +34,10 @@ struct TransactionDraft: Sendable {
               calendar.startOfDay(for: date) <= calendar.startOfDay(for: now) else {
             throw TransactionError.invalidDate
         }
-        guard merchant.count <= 100, note.count <= 500 else { throw TransactionError.textTooLong }
+        // Match what the store persists: it trims before saving.
+        guard merchant.trimmingCharacters(in: .whitespacesAndNewlines).count <= 100,
+              note.trimmingCharacters(in: .whitespacesAndNewlines).count <= 500 else {
+            throw TransactionError.textTooLong
+        }
     }
 }

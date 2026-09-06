@@ -29,11 +29,13 @@ final class CategoryStoreTests: XCTestCase {
         XCTAssertTrue(try store.fetchAll().isEmpty)
     }
 
-    func testDuplicateNamesIncludeArchivedAndAllowDifferentTypes() throws {
+    func testCreatingArchivedNameReactivatesStableRecordAndAllowsDifferentType() throws {
         let store = try makeStore()
         let item = try store.save(draft("Coffee Shops"), id: nil)
         _ = try store.setArchived(true, id: item.id)
-        XCTAssertThrowsError(try store.save(draft("  COFFEE   SHOPS "), id: nil))
+        let reactivated = try store.save(draft("  COFFEE   SHOPS "), id: nil)
+        XCTAssertEqual(reactivated.id, item.id)
+        XCTAssertFalse(reactivated.isArchived)
         _ = try store.save(draft("Coffee Shops", kind: .income), id: nil)
         XCTAssertEqual(try store.fetchAll().count, 2)
         // Renaming an item to its own normalized name is valid.

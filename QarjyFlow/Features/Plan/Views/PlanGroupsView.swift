@@ -80,5 +80,5 @@ struct PlanGroupsView: View {
 }
 
 #Preview("Plan sections · delete with allocations") {
-    NavigationStack { PlanGroupsView(model: PlanViewModel()) }.tint(.green)
+    NavigationStack { PlanGroupsView(model: PlanViewModel(initialPlan: PlanPreviewData.plan)) }.tint(.green)
 }

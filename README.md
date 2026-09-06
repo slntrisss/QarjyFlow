@@ -4,11 +4,11 @@ A native iOS personal finance app, built incrementally from the supplied FinFlow
 
 ## Current milestone: local ledger and persisted monthly planning
 
-The running app now has **Home**, **Activity**, and **Plan** tabs. Categories live under **Home → Settings → Categories** and remain directly available from the transaction editor. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories from Settings or the transaction editor with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to archive, restore, or delete. The editor uses large icon tiles and explicit color swatches (rather than tint-dependent native menu labels). Search and the Active/Archived selector help manage larger lists. There is no artificial category-count limit, and no categories are inserted automatically.
+The running app now has **Home**, **Activity**, and **Plan** tabs. Categories live under **Home → Settings → Categories** and remain directly available from the transaction editor. Home shows recorded income, expenses, and net cash flow for the current calendar month. Activity supports adding, editing, deleting, searching, and filtering income/expense transactions. Create categories from Settings or the transaction editor with a name, income/expense type, icon, and color. Tap to edit; swipe or long-press to delete. The editor uses large icon tiles and explicit color swatches. There is no artificial category-count limit, and no categories are inserted automatically.
 
 Categories are saved using SwiftData on the device. There is no bank connection, login, network request, or app-level cloud sync (`cloudKitDatabase: .none`). Normal device backups are a separate OS concern: disabling app sync does not imply exclusion from device backup. Export/restore remains a future feature; local persistence alone is not a backup strategy.
 
-The original Home dashboard is available through **Home → View Sample Dashboard** and its previews. Its demo figures are never mixed with saved data. **Account balances, transfers, and investment tracking are not implemented yet.** Plan stores one local plan for the current month, including expected-income sources, custom sections, fixed or percentage allocations, and expense-category references. Categories used by transactions or plans cannot be deleted or switched between income and expense. Rename or archive them instead. Archived categories remain available to existing records but cannot be assigned to a new transaction or allocation.
+The original Home dashboard remains available in Xcode previews only; its demo figures are never mixed with saved data. **Account balances, transfers, and investment tracking are not implemented yet.** Plan stores one local plan for the current month, including expected-income sources, custom sections, fixed or percentage allocations, and expense-category references. Categories used by transactions or plans cannot be deleted or switched between income and expense because their historical references must remain valid.
 
 ### Categories, amounts, and transfers
 
@@ -37,10 +37,10 @@ Editors await successful saves before dismissing and prevent repeat submissions.
 
 - Stable UUID identity survives renaming; no record is identified by its display name.
 - Names are trimmed, required, limited to 60 characters, and cannot contain control characters internally.
-- Duplicate names within the same income/expense type are rejected, including archived categories. Comparison ignores case, accents, and repeated whitespace.
+- Duplicate names within the same income/expense type are rejected. Comparison ignores case, accents, and repeated whitespace.
 - Editing uses a value draft. Cancel changes nothing; Save validates and explicitly persists before dismissing.
 - Failed saves roll back and discard the dedicated category context so stale failed edits cannot appear on later reads. Loading failure never resets or silently replaces the database.
-- Archive/restore preserves the record and its ID. Deleting an unused category requires confirmation; deleting a used category is rejected.
+- Deleting an unused category requires confirmation; deleting a used category is rejected.
 
 ### Transaction behavior and storage upgrade
 
@@ -196,7 +196,7 @@ Manual checks once a compatible simulator is available:
 1. Create expense and income categories. Add an expense of 12.56 ₸ and an income of 100 ₸ dated this month; confirm Home net is 87.44 ₸.
 2. Edit a transaction, cancel, and confirm no change. Save an edit and confirm Home updates.
 3. Add another category after transactions exist, then assign it to an existing transaction.
-4. Attempt to delete or change the type of a used category; confirm the explanation. Archive it and verify history remains intact.
+4. Attempt to delete or change the type of a used category and confirm the explanation.
 5. Restart the app and confirm categories and transactions survive. Existing installations should upgrade without clearing data.
 6. Delete a transaction with confirmation and verify both totals and persistent history update.
 7. Check large text, dark mode, keyboard entry, sheet navigation, and VoiceOver on-device. Previews include empty, populated, and editor states.

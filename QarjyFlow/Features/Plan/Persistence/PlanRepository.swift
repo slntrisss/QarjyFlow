@@ -1,5 +1,6 @@
 import Foundation
 import SwiftData
+import os
 
 /// Production instance is confined to LedgerDatabase. It never escapes SwiftData records.
 final class PlanRepository {
@@ -8,21 +9,29 @@ final class PlanRepository {
 
     func fetch(month: PlanMonth) throws -> MonthlyPlan? {
         let context = makeContext()
-        let records = try context.fetch(FetchDescriptor<MonthlyPlanRecord>())
-        guard let plan = records.first(where: { $0.monthKey == month.key }) else { return nil }
+        let key = month.key
+        var descriptor = FetchDescriptor<MonthlyPlanRecord>(predicate: #Predicate { $0.monthKey == key })
+        descriptor.fetchLimit = 1
+        guard let plan = try context.fetch(descriptor).first else { return nil }
         return try materialize(plan, in: context)
     }
 
     func save(_ value: MonthlyPlan) throws -> MonthlyPlan {
         try validate(value)
         let context = makeContext()
-        let plans = try context.fetch(FetchDescriptor<MonthlyPlanRecord>())
+        let planID = value.id
         let record: MonthlyPlanRecord
-        if let existing = plans.first(where: { $0.id == value.id }) {
+        if let existing = try context.fetch(
+            FetchDescriptor<MonthlyPlanRecord>(predicate: #Predicate { $0.id == planID })
+        ).first {
             guard existing.monthKey == value.month.key else { throw PlanError.invalidPlan }
             record = existing
         } else {
-            guard !plans.contains(where: { $0.monthKey == value.month.key }) else { throw PlanError.duplicateMonth }
+            let key = value.month.key
+            let duplicates = try context.fetchCount(
+                FetchDescriptor<MonthlyPlanRecord>(predicate: #Predicate { $0.monthKey == key })
+            )
+            guard duplicates == 0 else { throw PlanError.duplicateMonth }
             record = MonthlyPlanRecord(id: value.id, month: value.month)
             context.insert(record)
         }
@@ -31,7 +40,11 @@ final class PlanRepository {
         try synchronizeGroups(value, in: context)
         try synchronizeAllocations(value, in: context)
         do { try context.save() }
-        catch { context.rollback(); throw error }
+        catch {
+            AppLog.persistence.error("Plan save failed: \(String(describing: error), privacy: .private(mask: .hash))")
+            context.rollback()
+            throw error
+        }
         return try materialize(record, in: context)
     }
 
@@ -66,7 +79,10 @@ final class PlanRepository {
     }
 
     private func synchronizeIncome(_ plan: MonthlyPlan, in context: ModelContext) throws {
-        let existing = try context.fetch(FetchDescriptor<PlannedIncomeRecord>()).filter { $0.planID == plan.id }
+        let pid = plan.id
+        let existing = try context.fetch(
+            FetchDescriptor<PlannedIncomeRecord>(predicate: #Predicate { $0.planID == pid })
+        )
         let ids = Set(plan.incomeSources.map(\.id))
         existing.filter { !ids.contains($0.id) }.forEach(context.delete)
         for source in plan.incomeSources {
@@ -81,7 +97,10 @@ final class PlanRepository {
     }
 
     private func synchronizeGroups(_ plan: MonthlyPlan, in context: ModelContext) throws {
-        let existing = try context.fetch(FetchDescriptor<PlanGroupRecord>()).filter { $0.planID == plan.id }
+        let pid = plan.id
+        let existing = try context.fetch(
+            FetchDescriptor<PlanGroupRecord>(predicate: #Predicate { $0.planID == pid })
+        )
         let ids = Set(plan.groups.map(\.id))
         existing.filter { !ids.contains($0.id) }.forEach(context.delete)
         for (order, group) in plan.groups.enumerated() {
@@ -101,7 +120,10 @@ final class PlanRepository {
                       category.kindRawValue == CategoryKind.expense.rawValue else { throw PlanError.categoryUnavailable }
             }
         }
-        let existing = try context.fetch(FetchDescriptor<PlanAllocationRecord>()).filter { $0.planID == plan.id }
+        let pid = plan.id
+        let existing = try context.fetch(
+            FetchDescriptor<PlanAllocationRecord>(predicate: #Predicate { $0.planID == pid })
+        )
         let ids = Set(plan.allocations.map(\.id))
         existing.filter { !ids.contains($0.id) }.forEach(context.delete)
         for allocation in plan.allocations {
@@ -113,25 +135,39 @@ final class PlanRepository {
                 case .fixed(let amount): record.modeRawValue = "fixed"; record.valueMinor = amount.minorUnits
                 case .percentage(let value): record.modeRawValue = "percentage"; record.valueMinor = value.minorUnits
                 }
-            } else { context.insert(PlanAllocationRecord(allocation: allocation, planID: plan.id)) }
+            } else {
+                context.insert(PlanAllocationRecord(allocation: allocation, planID: plan.id))
+            }
         }
     }
 
     private func materialize(_ plan: MonthlyPlanRecord, in context: ModelContext) throws -> MonthlyPlan {
-        let income = try context.fetch(FetchDescriptor<PlannedIncomeRecord>()).filter { $0.planID == plan.id }
+        let pid = plan.id
+        let income = try context.fetch(
+            FetchDescriptor<PlannedIncomeRecord>(predicate: #Predicate { $0.planID == pid })
+        )
             .map { PlannedIncomeSource(id: $0.id, name: $0.name, amount: .fromMinorUnits($0.amountMinor)) }
-            .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        let groups = try context.fetch(FetchDescriptor<PlanGroupRecord>()).filter { $0.planID == plan.id }
+            .sorted { (left: PlannedIncomeSource, right: PlannedIncomeSource) in
+                left.name.localizedStandardCompare(right.name) == .orderedAscending
+            }
+        let groups = try context.fetch(
+            FetchDescriptor<PlanGroupRecord>(predicate: #Predicate { $0.planID == pid })
+        )
             .sorted { $0.sortOrder < $1.sortOrder }
             .map { PlanGroup(id: $0.id, name: $0.name, subtitle: $0.subtitle, symbol: $0.symbol,
                              color: ThemeColor(rawValue: $0.colorRawValue) ?? .green) }
-        let allocations = try context.fetch(FetchDescriptor<PlanAllocationRecord>()).filter { $0.planID == plan.id }
+        let allocations = try context.fetch(
+            FetchDescriptor<PlanAllocationRecord>(predicate: #Predicate { $0.planID == pid })
+        )
             .map { record in
                 let value = Decimal.fromMinorUnits(record.valueMinor)
                 return PlanAllocation(id: record.id, name: record.name, symbol: record.symbol,
                                       groupID: record.groupID, categoryID: record.categoryID,
                                       tracksContribution: record.tracksContribution,
                                       rule: record.modeRawValue == "percentage" ? .percentage(value) : .fixed(value))
+            }
+            .sorted { (left: PlanAllocation, right: PlanAllocation) in
+                left.name.localizedStandardCompare(right.name) == .orderedAscending
             }
         return MonthlyPlan(id: plan.id, month: PlanMonth(year: plan.year, month: plan.month),
                            incomeSources: income, groups: groups, allocations: allocations)

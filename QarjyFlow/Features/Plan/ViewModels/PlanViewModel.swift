@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 @MainActor
 @Observable
@@ -17,12 +18,13 @@ final class PlanViewModel {
     init(store: (any PlanStore)? = nil, month: PlanMonth = PlanMonth(),
          initialPlan: MonthlyPlan? = nil) {
         self.store = store
-        let initial = initialPlan ?? (store == nil ? PlanPreviewData.plan : nil)
-        self.month = initial?.month ?? month
-        planID = initial?.id
-        incomeSources = initial?.incomeSources ?? []
-        groups = initial?.groups ?? []
-        allocations = initial?.allocations ?? []
+        // No fallback to sample data: production must pass a real store; previews
+        // and tests pass an explicit `initialPlan` fixture.
+        self.month = initialPlan?.month ?? month
+        planID = initialPlan?.id
+        incomeSources = initialPlan?.incomeSources ?? []
+        groups = initialPlan?.groups ?? []
+        allocations = initialPlan?.allocations ?? []
         hasLoaded = store == nil
     }
 
@@ -37,6 +39,7 @@ final class PlanViewModel {
             hasLoaded = true
             errorMessage = nil
         } catch {
+            AppLog.plan.error("Load failed: \(String(describing: error), privacy: .private(mask: .hash))")
             hasLoaded = true
             errorMessage = "Could not load this monthly plan. Please try again."
         }
@@ -119,10 +122,13 @@ final class PlanViewModel {
 
     func moveGroups(from source: IndexSet, to destination: Int) async {
         let previous = groups
+        // `Array.move(fromOffsets:toOffset:)` ships with SwiftUI, which this
+        // non-UI type does not import; this is the same relocation `onMove` performs.
         let moving = source.sorted().map { groups[$0] }
-        let remaining = groups.enumerated().filter { !source.contains($0.offset) }.map(\.element)
-        let adjusted = destination - source.filter { $0 < destination }.count
-        groups = remaining; groups.insert(contentsOf: moving, at: min(max(adjusted, 0), groups.count))
+        var remaining = groups.enumerated().filter { !source.contains($0.offset) }.map(\.element)
+        let insertionIndex = destination - source.filter { $0 < destination }.count
+        remaining.insert(contentsOf: moving, at: min(max(insertionIndex, 0), remaining.count))
+        groups = remaining
         await persistOrReport(fallback: { self.groups = previous }, fallbackMessage: "Could not reorder sections.")
     }
 
@@ -156,7 +162,10 @@ final class PlanViewModel {
         guard !isSaving else { fallback(); return CancellationError() }
         isSaving = true; defer { isSaving = false }
         do { apply(try await store.save(value)); return nil }
-        catch { fallback(); return error }
+        catch {
+            AppLog.plan.error("Persist failed: \(String(describing: error), privacy: .private(mask: .hash))")
+            fallback(); return error
+        }
     }
 
     private func persistOrReport(fallback: @escaping () -> Void = {}, fallbackMessage: String) async {

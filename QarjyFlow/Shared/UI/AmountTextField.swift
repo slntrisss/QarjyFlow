@@ -7,6 +7,7 @@ struct AmountTextField: UIViewRepresentable {
     var placeholder = "0.00"
     var inputLabel = "Amount in tenge"
     var inputIdentifier = "transaction.amount"
+    var isFocused: Binding<Bool>?
 
     func makeUIView(context: Context) -> UITextField {
         let field = UITextField()
@@ -30,6 +31,8 @@ struct AmountTextField: UIViewRepresentable {
         field.accessibilityIdentifier = inputIdentifier
         let display = AmountInputFormatting.display(rawText)
         if field.text != display { field.text = display }
+        if isFocused?.wrappedValue == true, !field.isFirstResponder { field.becomeFirstResponder() }
+        if isFocused?.wrappedValue == false, field.isFirstResponder { field.resignFirstResponder() }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
@@ -39,6 +42,14 @@ struct AmountTextField: UIViewRepresentable {
         var parent: AmountTextField
 
         init(parent: AmountTextField) { self.parent = parent }
+
+        func textFieldDidBeginEditing(_ textField: UITextField) {
+            parent.isFocused?.wrappedValue = true
+        }
+
+        func textFieldDidEndEditing(_ textField: UITextField) {
+            parent.isFocused?.wrappedValue = false
+        }
 
         func textField(_ field: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
             guard let edit = AmountInputFormatting.edit(display: field.text ?? "", range: range, replacement: string) else {

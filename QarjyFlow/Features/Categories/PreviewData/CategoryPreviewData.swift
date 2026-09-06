@@ -1,5 +1,8 @@
 import Foundation
 
+// TODO(ID-4): move preview/test fixtures into a DEBUG-only preview-support module or
+// wrap this file plus every referencing #Preview in `#if DEBUG`. Do it in Xcode where
+// the app target compiles. Production no longer depends on these types.
 @MainActor
 enum CategoryPreviewData {
     static let food = CategoryItem(
