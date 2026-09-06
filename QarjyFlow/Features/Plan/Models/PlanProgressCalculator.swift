@@ -2,6 +2,7 @@ import Foundation
 
 struct PlanProgressCalculator: Sendable {
     func calculate(plan: MonthlyPlan, transactions: [TransactionItem],
+                   contributions: [GoalContribution] = [],
                    calendar: Calendar = .current) -> PlanProgress {
         let monthTransactions = transactions.filter { plan.month.contains($0.date, calendar: calendar) }
         let recordedIncome = monthTransactions.filter { $0.kind == .income }
@@ -11,6 +12,12 @@ struct PlanProgressCalculator: Sendable {
 
         let progress = plan.allocations.map { allocation in
             let planned = allocation.rule.amount(income: plan.income)
+            if let goalID = allocation.goalID {
+                let actual = contributions
+                    .filter { $0.goalID == goalID && plan.month.contains($0.date, calendar: calendar) }
+                    .reduce(Decimal.zero) { $0 + $1.amount }
+                return AllocationProgress(allocation: allocation, planned: planned, actual: actual)
+            }
             guard let categoryID = allocation.categoryID else {
                 return AllocationProgress(allocation: allocation, planned: planned, actual: nil)
             }

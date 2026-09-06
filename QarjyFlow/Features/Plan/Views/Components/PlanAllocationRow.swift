@@ -23,12 +23,11 @@ struct PlanAllocationRow: View {
                     }
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.caption2.bold()).foregroundStyle(.tertiary)
             }
             if let actual = progress.actual, let remaining = progress.remaining {
                 HStack(alignment: .top, spacing: 12) {
                     metric("Planned", value: progress.planned, color: .primary)
-                    metric("Spent", value: actual, color: .primary)
+                    metric(allocation.goalID == nil ? "Spent" : "Contributed", value: actual, color: .primary)
                     metric(progress.isOverBudget ? "Over" : "Remaining", value: abs(remaining),
                            color: progress.isOverBudget ? .red : .green)
                 }

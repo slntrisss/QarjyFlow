@@ -58,11 +58,8 @@ struct PlanAllocationEditorView: View {
                     }.pickerStyle(.segmented)
                     if usePercentage {
                         LabeledContent("Percent") {
-                            AmountTextField(rawText: $percentText, placeholder: "30",
-                                inputLabel: "Percentage of expected income", inputIdentifier: "plan.percentage",
-                                isFocused: $valueFocused)
-                                .frame(minHeight: 44)
-                            Text("%")
+                            PercentageInputField(text: $percentText, isFocused: $valueFocused,
+                                                 identifier: "plan.percentage")
                         }
                         .contentShape(Rectangle())
                         .onTapGesture { valueFocused = true }

@@ -76,4 +76,30 @@ final class PlanProgressCalculatorTests: XCTestCase {
         XCTAssertEqual(progress.remaining, -25_000)
         XCTAssertTrue(progress.isOverBudget)
     }
+
+    func testGoalActualUsesOnlyContributionsFromPlanMonth() throws {
+        let goalID = UUID()
+        let group = PlanGroup(id: UUID(), name: "Future", subtitle: "",
+                              symbol: "sparkles", color: .purple)
+        let allocation = PlanAllocation(id: UUID(), name: "S&P 500", symbol: "chart.line.uptrend.xyaxis",
+                                        groupID: group.id, categoryID: nil, goalID: goalID,
+                                        tracksContribution: true, rule: .fixed(100_000))
+        let plan = MonthlyPlan(id: UUID(), month: PlanMonth(year: 2026, month: 9),
+                               incomeSources: [], groups: [group], allocations: [allocation])
+        let contributions = [
+            GoalContribution(id: UUID(), goalID: goalID, amountMinor: 40_000_00,
+                             date: date("2026-09-05T12:00:00Z"), note: "September"),
+            GoalContribution(id: UUID(), goalID: goalID, amountMinor: 25_000_00,
+                             date: date("2026-08-31T12:00:00Z"), note: "August"),
+            GoalContribution(id: UUID(), goalID: UUID(), amountMinor: 10_000_00,
+                             date: date("2026-09-06T12:00:00Z"), note: "Other goal")
+        ]
+
+        let result = PlanProgressCalculator().calculate(
+            plan: plan, transactions: [], contributions: contributions, calendar: calendar
+        )
+        let progress = try XCTUnwrap(result.allocations.first)
+        XCTAssertEqual(progress.actual, 40_000)
+        XCTAssertEqual(progress.remaining, 60_000)
+    }
 }

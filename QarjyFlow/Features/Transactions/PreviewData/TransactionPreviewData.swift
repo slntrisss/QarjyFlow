@@ -43,7 +43,7 @@ enum TransactionPreviewData {
                 _ = try transactions.save(income, id: nil)
             }
             return (AppStores(categories: categories, transactions: transactions,
-                              plans: PreviewPlanStore()), transactions)
+                              plans: PreviewPlanStore(), goals: PreviewGoalStore()), transactions)
         } catch { fatalError("Could not build transaction preview: \(error)") }
     }
 }

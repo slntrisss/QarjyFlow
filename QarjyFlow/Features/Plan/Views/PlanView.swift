@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PlanView: View {
     @State private var model: PlanViewModel
+    @State private var goalsModel: GoalsViewModel
     @State private var editing: PlanAllocation?
     @State private var deleting: PlanAllocation?
     @State private var editingIncome = false
@@ -9,11 +10,12 @@ struct PlanView: View {
     let categories: [CategoryItem]
     let transactions: [TransactionItem]
 
-    init(store: (any PlanStore)? = nil, initialPlan: MonthlyPlan? = nil,
+    init(store: (any PlanStore)? = nil, goalStore: any GoalStore = PreviewGoalStore(), initialPlan: MonthlyPlan? = nil,
          categories: [CategoryItem] = [], transactions: [TransactionItem] = []) {
         self.categories = categories
         self.transactions = transactions
         _model = State(initialValue: PlanViewModel(store: store, initialPlan: initialPlan))
+        _goalsModel = State(initialValue: GoalsViewModel(store: goalStore))
     }
 
     var body: some View {
@@ -34,7 +36,7 @@ struct PlanView: View {
                 plan
             }
         }
-        .task { await model.load() }
+        .task { async let plan: Void = model.load(); async let goals: Void = goalsModel.load(); _ = await (plan, goals) }
         .alert("Plan", isPresented: Binding(get: { model.errorMessage != nil },
               set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK", role: .cancel) { model.errorMessage = nil }
@@ -43,7 +45,8 @@ struct PlanView: View {
 
     private var plan: some View {
         let progress = PlanProgressCalculator().calculate(
-            plan: model.currentPlan!, transactions: transactions
+            plan: model.currentPlan!, transactions: transactions,
+            contributions: goalsModel.contributions
         )
         return PlanOverviewView(monthTitle: model.month.title,
                          progress: progress, incomeSourceCount: model.incomeSources.count,
@@ -53,10 +56,17 @@ struct PlanView: View {
                          onAddAllocation: { addingAllocation = true })
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                NavigationLink { PlanGroupsView(model: model) } label: {
-                    Image(systemName: "slider.horizontal.3")
+                Menu {
+                    NavigationLink { GoalsView(model: goalsModel) } label: {
+                        Label("Goals", systemImage: "target")
+                    }
+                    NavigationLink { PlanGroupsView(model: model) } label: {
+                        Label("Plan Sections", systemImage: "slider.horizontal.3")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                         .font(.title3.weight(.semibold)).frame(minWidth: 44, minHeight: 44)
-                }.accessibilityLabel("Customize Plan Sections")
+                }.accessibilityLabel("Plan options")
             }
         }
         .sheet(item: $editing) { allocation in
@@ -71,7 +81,7 @@ struct PlanView: View {
             NavigationStack { PlannedIncomeSourcesView(model: model) }
         }
         .sheet(isPresented: $addingAllocation) {
-            PlanAllocationCreatorView(groups: model.groups, categories: categories,
+            PlanAllocationCreatorView(groups: model.groups, categories: categories, goals: goalsModel.goals,
                                       income: model.income, onSave: model.addAllocation)
         }
         .confirmationDialog("Delete \(deleting?.name ?? "allocation")?", isPresented: Binding(

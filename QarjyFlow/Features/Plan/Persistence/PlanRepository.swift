@@ -38,6 +38,7 @@ final class PlanRepository {
 
         try synchronizeIncome(value, in: context)
         try synchronizeGroups(value, in: context)
+        try synchronizeGoalLinks(value, in: context)
         try synchronizeAllocations(value, in: context)
         do { try context.save() }
         catch {
@@ -53,12 +54,15 @@ final class PlanRepository {
         let incomeNames = plan.incomeSources.map { normalized($0.name) }
         let groupNames = plan.groups.map { normalized($0.name) }
         let categoryIDs = plan.allocations.compactMap(\.categoryID)
+        let goalIDs = plan.allocations.compactMap(\.goalID)
         guard groupIDs.count == plan.groups.count,
               Set(plan.incomeSources.map(\.id)).count == plan.incomeSources.count,
               Set(plan.allocations.map(\.id)).count == plan.allocations.count,
               Set(incomeNames).count == incomeNames.count,
               Set(groupNames).count == groupNames.count,
               Set(categoryIDs).count == categoryIDs.count,
+              Set(goalIDs).count == goalIDs.count,
+              plan.allocations.allSatisfy({ !($0.categoryID != nil && $0.goalID != nil) }),
               plan.incomeSources.allSatisfy({ !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
               plan.groups.allSatisfy({ !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
               plan.allocations.allSatisfy({ !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }),
@@ -72,6 +76,28 @@ final class PlanRepository {
                   }
               })
         else { throw PlanError.invalidPlan }
+    }
+
+    private func synchronizeGoalLinks(_ plan: MonthlyPlan, in context: ModelContext) throws {
+        let allocationIDs = Set(plan.allocations.map(\.id))
+        let pid = plan.id
+        let previousAllocationIDs = Set(try context.fetch(
+            FetchDescriptor<PlanAllocationRecord>(predicate: #Predicate { $0.planID == pid })
+        ).map(\.id))
+        let existing = try context.fetch(FetchDescriptor<PlanGoalLinkRecord>())
+            .filter { allocationIDs.contains($0.allocationID) || previousAllocationIDs.contains($0.allocationID) }
+        let linked = plan.allocations.compactMap { allocation -> (UUID, UUID)? in
+            allocation.goalID.map { (allocation.id, $0) }
+        }
+        let goalIDs = Set(linked.map(\.1))
+        let storedGoalIDs = Set(try context.fetch(FetchDescriptor<FinancialGoalRecord>()).map(\.id))
+        guard goalIDs.isSubset(of: storedGoalIDs) else { throw PlanError.invalidPlan }
+        let linkedAllocationIDs = Set(linked.map(\.0))
+        existing.filter { !linkedAllocationIDs.contains($0.allocationID) }.forEach(context.delete)
+        for (allocationID, goalID) in linked {
+            if let record = existing.first(where: { $0.allocationID == allocationID }) { record.goalID = goalID }
+            else { context.insert(PlanGoalLinkRecord(allocationID: allocationID, goalID: goalID)) }
+        }
     }
 
     private func isExactPositiveMoney(_ value: Decimal) -> Bool {
@@ -159,10 +185,13 @@ final class PlanRepository {
         let allocations = try context.fetch(
             FetchDescriptor<PlanAllocationRecord>(predicate: #Predicate { $0.planID == pid })
         )
-            .map { record in
+        let links = try context.fetch(FetchDescriptor<PlanGoalLinkRecord>())
+        let goalByAllocation = Dictionary(uniqueKeysWithValues: links.map { ($0.allocationID, $0.goalID) })
+        let materializedAllocations = allocations.map { record in
                 let value = Decimal.fromMinorUnits(record.valueMinor)
                 return PlanAllocation(id: record.id, name: record.name, symbol: record.symbol,
                                       groupID: record.groupID, categoryID: record.categoryID,
+                                      goalID: goalByAllocation[record.id],
                                       tracksContribution: record.tracksContribution,
                                       rule: record.modeRawValue == "percentage" ? .percentage(value) : .fixed(value))
             }
@@ -170,7 +199,7 @@ final class PlanRepository {
                 left.name.localizedStandardCompare(right.name) == .orderedAscending
             }
         return MonthlyPlan(id: plan.id, month: PlanMonth(year: plan.year, month: plan.month),
-                           incomeSources: income, groups: groups, allocations: allocations)
+                           incomeSources: income, groups: groups, allocations: materializedAllocations)
     }
 
     private func makeContext() -> ModelContext {

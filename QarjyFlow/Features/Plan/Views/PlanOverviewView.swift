@@ -11,8 +11,8 @@ struct PlanOverviewView: View {
     let onAddAllocation: () -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
+        List {
+            Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(monthTitle).font(.title2.bold())
                     Text("Tap an allocation to edit its amount or move it to another section. Use the toolbar to customize sections.")
@@ -30,21 +30,25 @@ struct PlanOverviewView: View {
                     }
                     .foregroundStyle(.orange).cardStyle()
                 }
+            }
+            Section {
                 HStack {
                     Text("Your allocations").font(.title3.bold())
                     Spacer()
                     Button("Add", systemImage: "plus", action: onAddAllocation)
                 }
-                ForEach(groups) { group in
-                    PlanGroupSection(group: group,
-                                     allocations: progress.allocations.filter { $0.allocation.groupID == group.id },
-                                     onEdit: onEdit, onDelete: onDelete)
-                }
-                Text("Planning money does not spend or transfer it. Actual spending will connect to Activity later.")
+            }
+            ForEach(groups) { group in
+                PlanGroupSection(group: group,
+                                 allocations: progress.allocations.filter { $0.allocation.groupID == group.id },
+                                 onEdit: onEdit, onDelete: onDelete)
+            }
+            Section {
+                Text("Planning money does not spend or transfer it. Expense actuals come from Activity; goal actuals come from contributions.")
                     .font(.footnote).foregroundStyle(.secondary)
-            }.padding(20)
+            }
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .listStyle(.insetGrouped)
         .navigationTitle("My Plan").navigationBarTitleDisplayMode(.inline)
     }
 }

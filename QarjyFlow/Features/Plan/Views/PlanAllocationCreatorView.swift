@@ -3,12 +3,13 @@ import SwiftUI
 struct PlanAllocationCreatorView: View {
     let groups: [PlanGroup]
     let categories: [CategoryItem]
+    let goals: [FinancialGoal]
     let income: Decimal
     let onSave: (PlanAllocation) async -> String?
     @Environment(\.dismiss) private var dismiss
     @State private var isFuturePurpose = false
     @State private var categoryID: UUID?
-    @State private var purposeName = ""
+    @State private var goalID: UUID?
     @State private var groupID: UUID
     @State private var usePercentage = false
     @State private var amountText = ""
@@ -17,9 +18,10 @@ struct PlanAllocationCreatorView: View {
     @State private var isSaving = false
     @State private var valueFocused = false
 
-    init(groups: [PlanGroup], categories: [CategoryItem], income: Decimal,
+    init(groups: [PlanGroup], categories: [CategoryItem], goals: [FinancialGoal] = [], income: Decimal,
          onSave: @escaping (PlanAllocation) async -> String?) {
-        self.groups = groups; self.categories = categories; self.income = income; self.onSave = onSave
+        self.groups = groups; self.categories = categories; self.goals = goals
+        self.income = income; self.onSave = onSave
         _groupID = State(initialValue: groups.first?.id ?? UUID())
     }
 
@@ -33,9 +35,10 @@ struct PlanAllocationCreatorView: View {
         return usePercentage ? (value <= 100 ? .percentage(value) : nil) : .fixed(value)
     }
     private var selectedCategory: CategoryItem? { expenseCategories.first { $0.id == categoryID } }
+    private var selectedGoal: FinancialGoal? { goals.first { $0.id == goalID } }
     private var canSave: Bool {
         groups.contains(where: { $0.id == groupID }) && rule != nil &&
-        (isFuturePurpose ? !purposeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : selectedCategory != nil)
+        (isFuturePurpose ? selectedGoal != nil : selectedCategory != nil)
     }
 
     var body: some View {
@@ -45,9 +48,15 @@ struct PlanAllocationCreatorView: View {
                     Picker("Allocation target", selection: $isFuturePurpose) {
                         Text("Spending").tag(false); Text("Saving / Investing").tag(true)
                     }.pickerStyle(.segmented)
-                    if isFuturePurpose {
-                        TextField("Purpose, for example S&P 500", text: $purposeName)
-                        Text("This creates a planning goal and does not require an income or expense category.")
+                    if isFuturePurpose && goals.isEmpty {
+                        ContentUnavailableView("No goals", systemImage: "target",
+                                               description: Text("Create a goal from the Plan toolbar first."))
+                    } else if isFuturePurpose {
+                        Picker("Goal", selection: $goalID) {
+                            Text("Choose a goal").tag(nil as UUID?)
+                            ForEach(goals) { Label($0.name, systemImage: $0.symbol).tag(Optional($0.id)) }
+                        }
+                        Text("Contributions recorded for this goal will become its monthly actual amount.")
                             .font(.footnote).foregroundStyle(.secondary)
                     } else if expenseCategories.isEmpty {
                         ContentUnavailableView("No expense categories", systemImage: "tag",
@@ -68,11 +77,8 @@ struct PlanAllocationCreatorView: View {
                     }.pickerStyle(.segmented)
                     if usePercentage {
                         LabeledContent("Percent") {
-                            AmountTextField(rawText: $percentText, placeholder: "10",
-                                inputLabel: "Percentage of expected income", inputIdentifier: "plan.new.percentage",
-                                isFocused: $valueFocused)
-                                .frame(minHeight: 44)
-                            Text("%")
+                            PercentageInputField(text: $percentText, isFocused: $valueFocused,
+                                                 identifier: "plan.new.percentage")
                         }
                         .contentShape(Rectangle())
                         .onTapGesture { valueFocused = true }
@@ -92,7 +98,7 @@ struct PlanAllocationCreatorView: View {
                 if let errorMessage {
                     Section { Label(errorMessage, systemImage: "exclamationmark.circle").foregroundStyle(.red) }
                 }
-                Section { Text("Saving and investment purposes are planning labels for now. Recording deposits and investment purchases will require the upcoming account and transfer flow.")
+                Section { Text("A goal contribution records progress without pretending the money was spent. Account transfers and investment holdings can be connected later.")
                     .font(.footnote).foregroundStyle(.secondary) }
             }
             .scrollDismissesKeyboard(.interactively)
@@ -113,10 +119,11 @@ struct PlanAllocationCreatorView: View {
     private func save() async {
         guard !isSaving, let rule else { return }
         isSaving = true; defer { isSaving = false }
-        let name = isFuturePurpose ? purposeName.trimmingCharacters(in: .whitespacesAndNewlines) : selectedCategory!.name
+        let name = isFuturePurpose ? selectedGoal!.name : selectedCategory!.name
         let allocation = PlanAllocation(id: UUID(), name: name,
-            symbol: isFuturePurpose ? "shield.fill" : selectedCategory!.symbol,
+            symbol: isFuturePurpose ? selectedGoal!.symbol : selectedCategory!.symbol,
             groupID: groupID, categoryID: isFuturePurpose ? nil : selectedCategory!.id,
+            goalID: isFuturePurpose ? selectedGoal!.id : nil,
             tracksContribution: isFuturePurpose, rule: rule)
         if let message = await onSave(allocation) { errorMessage = message }
         else { dismiss() }

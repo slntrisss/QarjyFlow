@@ -6,12 +6,14 @@ actor LedgerDatabase {
     private let categories: CategoryRepository
     private let transactions: TransactionRepository
     private let plans: PlanRepository
+    private let goals: GoalRepository
 
     private init(inMemory: Bool, url: URL?) throws {
         let container = try AppDatabase.makeContainer(inMemory: inMemory, url: url)
         categories = CategoryRepository(container: container)
         transactions = TransactionRepository(container: container)
         plans = PlanRepository(container: container)
+        goals = GoalRepository(container: container)
     }
 
     static func open(inMemory: Bool = false, url: URL? = nil) async throws -> LedgerDatabase {
@@ -40,4 +42,11 @@ actor LedgerDatabase {
     func deleteTransaction(id: UUID) throws { try transactions.delete(id: id) }
     func fetchPlan(month: PlanMonth) throws -> MonthlyPlan? { try plans.fetch(month: month) }
     func savePlan(_ plan: MonthlyPlan) throws -> MonthlyPlan { try plans.save(plan) }
+    func fetchGoals() throws -> GoalSnapshot { try goals.fetchSnapshot() }
+    func saveGoal(_ draft: GoalDraft, id: UUID?) throws -> FinancialGoal { try goals.save(draft, id: id) }
+    func addGoalContribution(goalID: UUID, amountText: String, date: Date, note: String) throws -> GoalContribution {
+        try goals.addContribution(goalID: goalID, amountText: amountText, date: date, note: note)
+    }
+    func deleteGoalContribution(id: UUID) throws { try goals.deleteContribution(id: id) }
+    func deleteGoal(id: UUID) throws { try goals.deleteGoal(id: id) }
 }

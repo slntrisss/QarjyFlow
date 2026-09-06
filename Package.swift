@@ -12,6 +12,7 @@ let package = Package(
             exclude: [
                 "App", "Assets.xcassets", "ContentView.swift", "QarjyFlowApp.swift",
                 "Features/Home", "Features/Settings", "Features/Categories/Views", "Features/Categories/PreviewData",
+                "Features/Goals/Views",
                 "Shared/UI", "Shared/Formatting",
                 "Features/Plan/Views",
                 "Features/Transactions/Views", "Features/Transactions/PreviewData"
