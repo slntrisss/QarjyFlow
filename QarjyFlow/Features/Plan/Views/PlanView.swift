@@ -7,10 +7,12 @@ struct PlanView: View {
     @State private var editingIncome = false
     @State private var addingAllocation = false
     let categories: [CategoryItem]
+    let transactions: [TransactionItem]
 
     init(store: (any PlanStore)? = nil, initialPlan: MonthlyPlan? = nil,
-         categories: [CategoryItem] = []) {
+         categories: [CategoryItem] = [], transactions: [TransactionItem] = []) {
         self.categories = categories
+        self.transactions = transactions
         _model = State(initialValue: PlanViewModel(store: store, initialPlan: initialPlan))
     }
 
@@ -40,9 +42,12 @@ struct PlanView: View {
     }
 
     private var plan: some View {
-        PlanOverviewView(monthTitle: model.month.title,
-                         income: model.income, incomeSourceCount: model.incomeSources.count,
-                         groups: model.groups, allocations: model.allocations,
+        let progress = PlanProgressCalculator().calculate(
+            plan: model.currentPlan!, transactions: transactions
+        )
+        return PlanOverviewView(monthTitle: model.month.title,
+                         progress: progress, incomeSourceCount: model.incomeSources.count,
+                         groups: model.groups,
                          onEdit: { editing = $0 }, onDelete: { deleting = $0 },
                          onEditIncome: { editingIncome = true },
                          onAddAllocation: { addingAllocation = true })

@@ -31,6 +31,7 @@ final class PlanViewModel {
     var income: Decimal { incomeSources.reduce(0) { $0 + $1.amount } }
     var allocated: Decimal { allocations.reduce(0) { $0 + $1.rule.amount(income: income) } }
     var hasPlan: Bool { planID != nil }
+    var currentPlan: MonthlyPlan? { value }
 
     func load() async {
         guard let store else { return }

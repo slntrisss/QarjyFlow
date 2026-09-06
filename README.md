@@ -8,7 +8,7 @@ The running app now has **Home**, **Activity**, and **Plan** tabs. Categories li
 
 Categories are saved using SwiftData on the device. There is no bank connection, login, network request, or app-level cloud sync (`cloudKitDatabase: .none`). Normal device backups are a separate OS concern: disabling app sync does not imply exclusion from device backup. Export/restore remains a future feature; local persistence alone is not a backup strategy.
 
-The original Home dashboard remains available in Xcode previews only; its demo figures are never mixed with saved data. **Account balances, transfers, and investment tracking are not implemented yet.** Plan stores one local plan for the current month, including expected-income sources, custom sections, fixed or percentage allocations, and expense-category references. Categories used by transactions or plans cannot be deleted or switched between income and expense because their historical references must remain valid.
+The original Home dashboard remains available in Xcode previews only; its demo figures are never mixed with saved data. **Account balances, transfers, and investment tracking are not implemented yet.** Plan stores one local plan for the current month, including expected-income sources, custom sections, fixed or percentage allocations, and expense-category references. It compares expected income with recorded Activity income and shows Planned, Spent, and Remaining for category-linked allocations. Expenses without an allocation are reported as Unplanned spending. Categories used by transactions or plans cannot be deleted or switched between income and expense because their historical references must remain valid.
 
 ### Categories, amounts, and transfers
 
@@ -163,7 +163,7 @@ The Plan tab's imported product context, proposed scope, and unresolved rules ar
 
 1. **Foundation / design review:** Home prototype and category details (current). Review on iPhone, including large text and dark mode.
 2. **First usable slice:** categories, income/expense CRUD, local storage, Activity, and recorded Home totals are implemented. Next review the flow on-device, then decide monthly budget behavior.
-3. **Planning:** month navigation and copying, allocation templates, planned-versus-actual values, and over-budget states. Preserve historical months when editing a plan.
+3. **Planning:** month navigation and copying, allocation templates, category detail drill-down, and budget moves. Preserve historical months when editing a plan.
 4. **Analysis:** categories, merchants, trends, calendar, monthly summary. Calculate from one ledger, not independent screen totals.
 5. **Extended finance:** accounts, transfers, savings goals, net worth, and free-to-spend rules after accounting semantics are agreed.
 6. **Release preparation:** accessibility, localization, backup/export, privacy decisions, migrations, icon, device testing, and TestFlight.

@@ -112,7 +112,7 @@ Already implemented:
 
 Missing for Plan:
 
-- Planned-versus-actual views, budget moves, and copy-month behavior.
+- Planned-versus-actual category drill-down, budget moves, and copy-month behavior.
 - Month navigation and reusable plan templates.
 - Explicit contribution records for Future purposes.
 - Optional due dates and local notification reminders for obligations such as rent.
@@ -147,4 +147,4 @@ Use feature-oriented MVVM, one primary type per file, reusable UI components, an
 
 ## Implemented persisted slice
 
-Plan creates an empty record for the current month and stores expected-income sources, custom ordered sections, and fixed or percentage allocations locally. Expense allocations reference dynamic expense categories; Future purposes can exist without a category. Expected income never creates an Activity transaction. Deleting an allocation or section returns its amount to Unallocated and never deletes Activity data. Category guards prevent deleting or changing the type of a referenced category. Every view retains a named preview backed by isolated fixtures. Planned-versus-actual values, month navigation, budget moves, copies, and Future contribution tracking remain future work.
+Plan creates an empty record for the current month and stores expected-income sources, custom ordered sections, and fixed or percentage allocations locally. Expense allocations reference dynamic expense categories and derive Spent/Remaining from same-month Activity transactions; unmatched expenses appear as Unplanned spending. Recorded income is compared with expected income without changing percentage allocations. Future purposes can exist without a category and intentionally show actual contribution as unavailable. Deleting an allocation or section returns its amount to Unallocated and never deletes Activity data. Category guards prevent deleting or changing the type of a referenced category. Every view retains a named preview backed by isolated fixtures. Month navigation, budget moves, copies, category drill-down, and Future contribution tracking remain future work.

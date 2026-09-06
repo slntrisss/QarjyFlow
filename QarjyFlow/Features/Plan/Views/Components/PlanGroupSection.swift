@@ -2,8 +2,7 @@ import SwiftUI
 
 struct PlanGroupSection: View {
     let group: PlanGroup
-    let allocations: [PlanAllocation]
-    let income: Decimal
+    let allocations: [AllocationProgress]
     let onEdit: (PlanAllocation) -> Void
     let onDelete: (PlanAllocation) -> Void
 
@@ -13,7 +12,7 @@ struct PlanGroupSection: View {
                 Image(systemName: group.symbol).foregroundStyle(group.tint)
                 Text(group.name).font(.headline)
                 Spacer()
-                Text(allocations.reduce(Decimal.zero) { $0 + $1.rule.amount(income: income) }.tenge)
+                Text(allocations.reduce(Decimal.zero) { $0 + $1.planned }.tenge)
                     .font(.subheadline.weight(.semibold)).foregroundStyle(group.tint)
             }
             if !group.subtitle.isEmpty {
@@ -23,10 +22,11 @@ struct PlanGroupSection: View {
                 Text("No allocations in this section").font(.subheadline).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             }
-            ForEach(allocations) { allocation in
+            ForEach(allocations) { progress in
+                let allocation = progress.allocation
                 HStack(spacing: 4) {
                     Button { onEdit(allocation) } label: {
-                        PlanAllocationRow(allocation: allocation, group: group, income: income)
+                        PlanAllocationRow(progress: progress, group: group)
                     }
                     .buttonStyle(.plain)
                     Menu {
@@ -40,7 +40,7 @@ struct PlanGroupSection: View {
                     .accessibilityLabel("Actions for \(allocation.name)")
                 }
             }
-            if allocations.contains(where: \.tracksContribution) {
+            if allocations.contains(where: { $0.allocation.tracksContribution }) {
                 Label("Contribution tracking isn’t available yet.", systemImage: "info.circle")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -49,7 +49,9 @@ struct PlanGroupSection: View {
 }
 
 #Preview("Section · allocation actions", traits: .sizeThatFitsLayout) {
+    let allocations = PlanPreviewData.allocations.filter { $0.groupID == PlanPreviewData.futureID }.map {
+        AllocationProgress(allocation: $0, planned: $0.rule.amount(income: PlanPreviewData.income), actual: nil)
+    }
     PlanGroupSection(group: PlanPreviewData.groups[1],
-                     allocations: PlanPreviewData.allocations.filter { $0.groupID == PlanPreviewData.futureID },
-                     income: PlanPreviewData.income, onEdit: { _ in }, onDelete: { _ in }).padding()
+                     allocations: allocations, onEdit: { _ in }, onDelete: { _ in }).padding()
 }

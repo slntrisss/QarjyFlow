@@ -22,4 +22,16 @@ struct PlanMonth: Hashable, Codable, Sendable {
         guard let date = Calendar(identifier: .gregorian).date(from: components) else { return key }
         return date.formatted(.dateTime.month(.wide).year())
     }
+
+    func contains(_ date: Date, calendar: Calendar = .current) -> Bool {
+        var components = DateComponents()
+        components.calendar = calendar
+        components.timeZone = calendar.timeZone
+        components.year = year
+        components.month = month
+        components.day = 1
+        guard let start = calendar.date(from: components),
+              let end = calendar.date(byAdding: .month, value: 1, to: start) else { return false }
+        return date >= start && date < end
+    }
 }

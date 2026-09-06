@@ -2,10 +2,9 @@ import SwiftUI
 
 struct PlanOverviewView: View {
     let monthTitle: String
-    let income: Decimal
+    let progress: PlanProgress
     let incomeSourceCount: Int
     let groups: [PlanGroup]
-    let allocations: [PlanAllocation]
     let onEdit: (PlanAllocation) -> Void
     let onDelete: (PlanAllocation) -> Void
     let onEditIncome: () -> Void
@@ -19,9 +18,18 @@ struct PlanOverviewView: View {
                     Text("Tap an allocation to edit its amount or move it to another section. Use the toolbar to customize sections.")
                         .font(.footnote).foregroundStyle(.secondary)
                 }
-                PlanIncomeCard(income: income, sourceCount: incomeSourceCount, onEdit: onEditIncome)
-                PlanAllocationSummary(income: income,
-                                      allocated: allocations.reduce(0) { $0 + $1.rule.amount(income: income) })
+                PlanIncomeCard(expected: progress.expectedIncome, recorded: progress.recordedIncome,
+                               sourceCount: incomeSourceCount, onEdit: onEditIncome)
+                PlanAllocationSummary(income: progress.expectedIncome,
+                                      allocated: progress.allocations.reduce(0) { $0 + $1.planned })
+                if progress.unplannedSpending > 0 {
+                    HStack {
+                        Label("Unplanned spending", systemImage: "exclamationmark.triangle.fill")
+                        Spacer()
+                        Text(progress.unplannedSpending.tenge).fontWeight(.semibold)
+                    }
+                    .foregroundStyle(.orange).cardStyle()
+                }
                 HStack {
                     Text("Your allocations").font(.title3.bold())
                     Spacer()
@@ -29,8 +37,8 @@ struct PlanOverviewView: View {
                 }
                 ForEach(groups) { group in
                     PlanGroupSection(group: group,
-                                     allocations: allocations.filter { $0.groupID == group.id },
-                                     income: income, onEdit: onEdit, onDelete: onDelete)
+                                     allocations: progress.allocations.filter { $0.allocation.groupID == group.id },
+                                     onEdit: onEdit, onDelete: onDelete)
                 }
                 Text("Planning money does not spend or transfer it. Actual spending will connect to Activity later.")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -42,19 +50,19 @@ struct PlanOverviewView: View {
 }
 
 #Preview("Plan overview · customizable sections") {
+    let progress = PlanProgressCalculator().calculate(plan: PlanPreviewData.plan, transactions: [])
     NavigationStack {
         PlanOverviewView(monthTitle: PlanPreviewData.plan.month.title,
-                         income: PlanPreviewData.income, incomeSourceCount: 2, groups: PlanPreviewData.groups,
-                         allocations: PlanPreviewData.allocations,
+                         progress: progress, incomeSourceCount: 2, groups: PlanPreviewData.groups,
                          onEdit: { _ in }, onDelete: { _ in }, onEditIncome: {}, onAddAllocation: {})
     }
 }
 
 #Preview("Plan overview · accessibility text") {
+    let progress = PlanProgressCalculator().calculate(plan: PlanPreviewData.plan, transactions: [])
     NavigationStack {
         PlanOverviewView(monthTitle: PlanPreviewData.plan.month.title,
-                         income: PlanPreviewData.income, incomeSourceCount: 2, groups: PlanPreviewData.groups,
-                         allocations: PlanPreviewData.allocations,
+                         progress: progress, incomeSourceCount: 2, groups: PlanPreviewData.groups,
                          onEdit: { _ in }, onDelete: { _ in }, onEditIncome: {}, onAddAllocation: {})
     }.environment(\.dynamicTypeSize, .accessibility2)
 }
