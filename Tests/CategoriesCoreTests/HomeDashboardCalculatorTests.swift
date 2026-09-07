@@ -63,4 +63,24 @@ final class HomeDashboardCalculatorTests: XCTestCase {
         XCTAssertEqual(result.calculatedRemaining, 0)
         XCTAssertFalse(result.hasPlan)
     }
+
+    func testHomeDatabaseQueryExcludesTransactionsOlderThanPreviousMonth() async throws {
+        let database = try await LedgerDatabase.open(inMemory: true)
+        var categoryDraft = CategoryDraft(); categoryDraft.name = "Food"
+        let category = try await database.saveCategory(categoryDraft, id: nil)
+
+        for (amount, timestamp) in [("100", "2026-09-05T12:00:00Z"),
+                                    ("200", "2026-08-05T12:00:00Z"),
+                                    ("300", "2026-07-05T12:00:00Z")] {
+            var draft = TransactionDraft(); draft.amountText = amount
+            draft.categoryID = category.id; draft.date = date(timestamp)
+            _ = try await database.saveTransaction(draft, id: nil)
+        }
+
+        let data = try await database.fetchHomeData(
+            month: PlanMonth(year: 2026, month: 9), calendar: calendar
+        )
+        XCTAssertEqual(data.transactions.map(\.amount), [100, 200])
+        XCTAssertEqual(data.categories.map(\.id), [category.id])
+    }
 }

@@ -7,6 +7,7 @@ struct AppStores {
     let transactions: any TransactionStore
     let plans: any PlanStore
     let goals: any GoalStore
+    let home: any HomeStore
 
     static func live() async throws -> AppStores {
         let database = try await LedgerDatabase.open()
@@ -14,7 +15,8 @@ struct AppStores {
             categories: SwiftDataCategoryStore(database: database),
             transactions: SwiftDataTransactionStore(database: database),
             plans: SwiftDataPlanStore(database: database),
-            goals: SwiftDataGoalStore(database: database)
+            goals: SwiftDataGoalStore(database: database),
+            home: SwiftDataHomeStore(database: database)
         )
     }
 

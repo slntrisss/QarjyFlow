@@ -16,6 +16,17 @@ final class GoalRepository {
         return GoalSnapshot(goals: goals, contributions: contributions)
     }
 
+    func fetchContributions(from start: Date, to end: Date) throws -> [GoalContribution] {
+        let context = ModelContext(container)
+        return try context.fetch(FetchDescriptor<GoalContributionRecord>(
+            predicate: #Predicate { $0.date >= start && $0.date < end },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )).map {
+            GoalContribution(id: $0.id, goalID: $0.goalID, amountMinor: $0.amountMinor,
+                             date: $0.date, note: $0.note)
+        }
+    }
+
     func save(_ draft: GoalDraft, id: UUID?) throws -> FinancialGoal {
         let name = draft.trimmedName
         guard !name.isEmpty, name.count <= 60,

@@ -56,6 +56,7 @@ struct ActivityView: View {
             }
         }
         .navigationTitle("Activity")
+        .task { await model.load(minInterval: 2) }
         .disabled(model.isMutating || preparingToAdd)
         .searchable(text: $model.searchText, prompt: "Category, merchant, or note")
         .scrollDismissesKeyboard(.interactively)

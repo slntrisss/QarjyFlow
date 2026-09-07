@@ -49,4 +49,19 @@ actor LedgerDatabase {
     }
     func deleteGoalContribution(id: UUID) throws { try goals.deleteContribution(id: id) }
     func deleteGoal(id: UUID) throws { try goals.deleteGoal(id: id) }
+
+    func fetchHomeData(month: PlanMonth, calendar: Calendar = .current) throws -> HomeDataSnapshot {
+        var components = DateComponents(); components.year = month.year; components.month = month.month
+        guard let currentStart = calendar.date(from: components),
+              let previousStart = calendar.date(byAdding: .month, value: -1, to: currentStart),
+              let nextStart = calendar.date(byAdding: .month, value: 1, to: currentStart) else {
+            return HomeDataSnapshot(transactions: [], categories: [], plan: nil, contributions: [])
+        }
+        return try HomeDataSnapshot(
+            transactions: transactions.fetch(from: previousStart, to: nextStart),
+            categories: categories.fetchAll(),
+            plan: plans.fetch(month: month),
+            contributions: goals.fetchContributions(from: currentStart, to: nextStart)
+        )
+    }
 }

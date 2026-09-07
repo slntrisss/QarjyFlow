@@ -16,6 +16,15 @@ final class TransactionRepository {
             .map(\.item)
     }
 
+    func fetch(from start: Date, to end: Date) throws -> [TransactionItem] {
+        let context = makeContext()
+        let descriptor = FetchDescriptor<TransactionRecord>(
+            predicate: #Predicate { $0.date >= start && $0.date < end },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        return try context.fetch(descriptor).map(\.item)
+    }
+
     func save(_ draft: TransactionDraft, id: UUID?) throws -> TransactionItem {
         try draft.validate()
         let context = makeContext()
@@ -25,9 +34,14 @@ final class TransactionRepository {
         } else {
             previous = nil
         }
-        guard let categoryID = draft.categoryID,
-              let category = try context.fetch(FetchDescriptor<CategoryRecord>())
-                .first(where: { $0.id == categoryID }) else { throw TransactionError.invalidCategory }
+        guard let categoryID = draft.categoryID else { throw TransactionError.invalidCategory }
+        var categoryDescriptor = FetchDescriptor<CategoryRecord>(
+            predicate: #Predicate { $0.id == categoryID }
+        )
+        categoryDescriptor.fetchLimit = 1
+        guard let category = try context.fetch(categoryDescriptor).first else {
+            throw TransactionError.invalidCategory
+        }
         guard category.kindRawValue == draft.kind.rawValue else { throw TransactionError.kindMismatch }
         // Existing history can retain its archived category when edited.
         guard !category.isArchived || previous?.categoryID == categoryID else {

@@ -14,7 +14,7 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                HomeLedgerView(model: model, planStore: stores.plans, goalStore: stores.goals)
+                HomeLedgerView(store: stores.home)
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             NavigationLink {
@@ -40,12 +40,14 @@ struct ContentView: View {
                 .tabItem { Label("Plan", systemImage: "chart.pie") }.tag(2)
         }
         .tint(.green)
-        .task { await model.load() }
         // Tab switches and scene activation are cheap triggers: coalesce them so
         // flipping tabs doesn't re-fetch the whole ledger each time.
-        .onChange(of: selection) { _, _ in Task { await model.load(minInterval: 2) } }
+        .onChange(of: selection) { _, tab in
+            // Activity owns its initial task. Plan still consumes this shared model.
+            if tab == 2 { Task { await model.load(minInterval: 2) } }
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await model.load(minInterval: 2) } }
+            if phase == .active, selection != 0 { Task { await model.load(minInterval: 2) } }
         }
         .alert("Transactions", isPresented: Binding(
             get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } }
