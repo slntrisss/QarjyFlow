@@ -11,7 +11,7 @@ let package = Package(
             name: "CategoriesCore", path: "QarjyFlow",
             exclude: [
                 "App", "Assets.xcassets", "ContentView.swift", "QarjyFlowApp.swift",
-                "Features/Home", "Features/Settings", "Features/Categories/Views", "Features/Categories/PreviewData",
+                "Features/Home/Views", "Features/Home/PreviewData", "Features/Settings", "Features/Categories/Views", "Features/Categories/PreviewData",
                 "Features/Goals/Views",
                 "Shared/UI", "Shared/Formatting",
                 "Features/Plan/Views",

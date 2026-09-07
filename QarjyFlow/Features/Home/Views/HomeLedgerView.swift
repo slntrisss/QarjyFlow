@@ -2,6 +2,15 @@ import SwiftUI
 
 struct HomeLedgerView: View {
     @Bindable var model: TransactionsViewModel
+    @State private var planModel: PlanViewModel
+    @State private var goalsModel: GoalsViewModel
+
+    init(model: TransactionsViewModel, planStore: (any PlanStore)? = nil,
+         goalStore: any GoalStore = PreviewGoalStore()) {
+        self.model = model
+        _planModel = State(initialValue: PlanViewModel(store: planStore))
+        _goalsModel = State(initialValue: GoalsViewModel(store: goalStore))
+    }
 
     var body: some View {
         Group {
@@ -21,6 +30,7 @@ struct HomeLedgerView: View {
         }
         .navigationTitle("QarjyFlow")
         .navigationBarTitleDisplayMode(.inline)
+        .onAppear { Task { await loadDashboardSources() } }
     }
 
     private var ledger: some View {
@@ -33,17 +43,43 @@ struct HomeLedgerView: View {
                 }
                 Text(month, format: .dateTime.month(.wide).year())
                     .font(.title2.bold())
-                let summary = TransactionSummary(transactions: model.transactions, month: month)
+                let dashboard = HomeDashboardCalculator().calculate(
+                    month: planModel.month, transactions: model.transactions,
+                    plan: planModel.currentPlan, contributions: goalsModel.contributions
+                )
                 VStack(spacing: 12) {
-                    MoneySummaryCard(title: "Recorded income", amount: summary.income, color: .green)
-                    MoneySummaryCard(title: "Recorded expenses", amount: summary.expense, color: .orange)
-                    MoneySummaryCard(title: "Net this month", amount: summary.net, color: .blue)
+                    MoneySummaryCard(title: "Recorded income", amount: dashboard.recordedIncome, color: .green)
+                    MoneySummaryCard(title: "Recorded expenses", amount: dashboard.recordedExpenses, color: .orange)
+                    MoneySummaryCard(title: "Goal contributions", amount: dashboard.goalContributions, color: .purple)
+                    MoneySummaryCard(title: "Calculated remaining", amount: dashboard.calculatedRemaining, color: .blue)
                 }
-                Text("Net is income minus expenses you recorded this month. It is not your bank balance or an amount safe to spend.")
+                Text("Calculated remaining is recorded income minus expenses and goal contributions. It is not a verified bank balance.")
                     .font(.footnote).foregroundStyle(.secondary)
-                Label("Expected income and allocations entered in Plan do not change these recorded totals. Record money when it is actually received or spent in Activity.",
-                      systemImage: "info.circle")
-                    .font(.footnote).foregroundStyle(.secondary)
+
+                if let rate = dashboard.savingsRate {
+                    LabeledContent("Saved this month",
+                                   value: "\(rate.formatted(.number.precision(.fractionLength(0...1))))%")
+                        .font(.headline)
+                }
+                if dashboard.hasPlan {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Plan progress").font(.headline)
+                        LabeledContent("Planned", value: dashboard.plannedAmount.tenge)
+                        LabeledContent("Actual", value: dashboard.actualAgainstPlan.tenge)
+                        if let overspend = dashboard.largestOverspend,
+                           let amount = overspend.remaining {
+                            Label("\(overspend.allocation.name) is over by \(abs(amount).tenge)",
+                                  systemImage: "exclamationmark.triangle.fill")
+                                .font(.subheadline).foregroundStyle(.orange)
+                        }
+                    }
+                    .cardStyle()
+                }
+                if let change = dashboard.expenseChangeRate {
+                    let direction = change >= 0 ? "more" : "less"
+                    Text("You spent \(abs(NSDecimalNumber(decimal: change).intValue))% \(direction) than last month.")
+                        .font(.subheadline).foregroundStyle(change > 0 ? .orange : .green)
+                }
 
                 if model.transactions.isEmpty {
                     Text("Your first transaction starts the story.").font(.headline)
@@ -63,7 +99,17 @@ struct HomeLedgerView: View {
         .background(Color(uiColor: .systemGroupedBackground))
         .navigationTitle("QarjyFlow")
         .navigationBarTitleDisplayMode(.inline)
-        .refreshable { await model.load() }
+        .refreshable {
+            async let ledger: Void = model.load()
+            async let dashboard: Void = loadDashboardSources()
+            _ = await (ledger, dashboard)
+        }
+    }
+
+    private func loadDashboardSources() async {
+        async let plan: Void = planModel.load()
+        async let goals: Void = goalsModel.load()
+        _ = await (plan, goals)
     }
 }
 

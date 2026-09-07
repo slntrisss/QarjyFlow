@@ -14,7 +14,7 @@ struct ContentView: View {
     var body: some View {
         TabView(selection: $selection) {
             NavigationStack {
-                HomeLedgerView(model: model)
+                HomeLedgerView(model: model, planStore: stores.plans, goalStore: stores.goals)
                     .toolbar {
                         ToolbarItem(placement: .primaryAction) {
                             NavigationLink {
