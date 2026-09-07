@@ -38,6 +38,10 @@ struct ContentView: View {
                          transactions: model.transactions)
             }
                 .tabItem { Label("Plan", systemImage: "chart.pie") }.tag(2)
+            NavigationStack {
+                AnalyticsView(store: stores.home)
+            }
+            .tabItem { Label("Analytics", systemImage: "chart.bar") }.tag(3)
         }
         .tint(.green)
         // Tab switches and scene activation are cheap triggers: coalesce them so

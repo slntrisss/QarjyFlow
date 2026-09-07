@@ -92,3 +92,8 @@ struct HomeLedgerView: View {
 #Preview("Home · empty bounded dashboard") {
     NavigationStack { HomeLedgerView(store: PreviewHomeStore()) }.tint(.green)
 }
+
+#Preview("Home · realistic monthly scenario") {
+    NavigationStack { HomeLedgerView(store: PreviewHomeStore(snapshot: HomeScenarioPreviewData.rich)) }
+        .tint(.green)
+}
